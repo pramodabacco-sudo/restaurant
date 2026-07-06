@@ -1,0 +1,146 @@
+{
+  "info": {
+    "name": "Menu Management - Phase 1",
+    "description": "Category, Menu Item, and Image Upload endpoints. No auth required yet.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000/api" },
+    { "key": "categoryId", "value": "" },
+    { "key": "menuItemId", "value": "" },
+    { "key": "imageUrl", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "Create Category",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Starters\",\n  \"description\": \"Appetizers and small plates\",\n  \"displayOrder\": 1\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/categories", "host": ["{{baseUrl}}"], "path": ["categories"] }
+          }
+        },
+        {
+          "name": "List Categories",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/categories", "host": ["{{baseUrl}}"], "path": ["categories"] }
+          }
+        },
+        {
+          "name": "Get Category By Id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/categories/{{categoryId}}", "host": ["{{baseUrl}}"], "path": ["categories", "{{categoryId}}"] }
+          }
+        },
+        {
+          "name": "Update Category",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Starters & Appetizers\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/categories/{{categoryId}}", "host": ["{{baseUrl}}"], "path": ["categories", "{{categoryId}}"] }
+          }
+        },
+        {
+          "name": "Delete Category",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/categories/{{categoryId}}", "host": ["{{baseUrl}}"], "path": ["categories", "{{categoryId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Menu Items",
+      "item": [
+        {
+          "name": "Create Menu Item",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Chicken Biryani\",\n  \"sku\": \"BIR-001\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"sellingPrice\": 250,\n  \"costPrice\": 120,\n  \"gstPercent\": 5,\n  \"foodType\": \"NON_VEG\",\n  \"imageUrl\": \"{{imageUrl}}\",\n  \"description\": \"Fragrant basmati rice with spiced chicken\",\n  \"prepTimeMinutes\": 20\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/menu", "host": ["{{baseUrl}}"], "path": ["menu"] }
+          }
+        },
+        {
+          "name": "List Menu Items",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/menu", "host": ["{{baseUrl}}"], "path": ["menu"] }
+          }
+        },
+        {
+          "name": "List Menu Items (search)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/menu?search=biryani",
+              "host": ["{{baseUrl}}"],
+              "path": ["menu"],
+              "query": [{ "key": "search", "value": "biryani" }]
+            }
+          }
+        },
+        {
+          "name": "Get Menu Item By Id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/menu/{{menuItemId}}", "host": ["{{baseUrl}}"], "path": ["menu", "{{menuItemId}}"] }
+          }
+        },
+        {
+          "name": "Update Menu Item",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sellingPrice\": 270,\n  \"isAvailable\": true\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/menu/{{menuItemId}}", "host": ["{{baseUrl}}"], "path": ["menu", "{{menuItemId}}"] }
+          }
+        },
+        {
+          "name": "Delete Menu Item (soft delete)",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/menu/{{menuItemId}}", "host": ["{{baseUrl}}"], "path": ["menu", "{{menuItemId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Image Upload",
+      "item": [
+        {
+          "name": "Upload Image",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "image", "type": "file", "src": "" },
+                { "key": "folder", "type": "text", "value": "menu-items" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/upload", "host": ["{{baseUrl}}"], "path": ["upload"] }
+          }
+        }
+      ]
+    }
+  ]
+}

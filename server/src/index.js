@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import menuRoutes from "./menu/menu.routes.js";
 
 const app = express();
 
@@ -15,5 +16,8 @@ app.use(express.json());
 app.get("/", (req, res) => {
   res.send("Server is live 🚀");
 });
+
+// Mounted with no auth for now — role guards get added here later
+app.use("/api", menuRoutes);
 
 export default app;

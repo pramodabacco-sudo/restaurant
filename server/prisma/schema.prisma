@@ -6,3 +6,88 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+enum ItemStatus {
+  ACTIVE
+  INACTIVE
+  OUT_OF_STOCK
+  DELETED
+}
+
+enum FoodType {
+  VEG
+  NON_VEG
+  EGG
+}
+
+model Category {
+  id            String        @id @default(uuid())
+  name          String
+  description   String?
+  imageUrl      String?
+  displayOrder  Int           @default(0)
+  isEnabled     Boolean       @default(true)
+  subCategories SubCategory[]
+  menuItems     MenuItem[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("categories")
+}
+
+model SubCategory {
+  id         String     @id @default(uuid())
+  name       String
+  categoryId String
+  category   Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  menuItems  MenuItem[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@map("sub_categories")
+}
+
+model KitchenSection {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  menuItems MenuItem[]
+  createdAt DateTime   @default(now())
+
+  @@map("kitchen_sections")
+}
+
+model MenuItem {
+  id        String  @id @default(uuid())
+  name      String
+  shortName String?
+  sku       String  @unique
+  barcode   String?
+
+  categoryId    String
+  category      Category     @relation(fields: [categoryId], references: [id])
+  subCategoryId String?
+  subCategory   SubCategory? @relation(fields: [subCategoryId], references: [id])
+
+  foodType         FoodType        @default(VEG)
+  kitchenSectionId String?
+  kitchenSection   KitchenSection? @relation(fields: [kitchenSectionId], references: [id])
+
+  sellingPrice  Decimal  @db.Decimal(10, 2)
+  costPrice     Decimal? @db.Decimal(10, 2)
+  gstPercent    Decimal  @default(0) @db.Decimal(5, 2)
+  serviceCharge Decimal? @db.Decimal(10, 2)
+
+  isAvailable     Boolean    @default(true)
+  isSeasonal      Boolean    @default(false)
+  isHiddenFromPOS Boolean    @default(false)
+  status          ItemStatus @default(ACTIVE)
+
+  imageUrl        String?
+  description     String?
+  prepTimeMinutes Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("menu_items")
+}
