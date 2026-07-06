@@ -1,12 +1,13 @@
+//client\src\menu\menuRoutes.jsx
 import { Routes, Route } from "react-router-dom";
-import MenuList from "./MenuList.jsx";
-import Categories from "./components/Categories.jsx";
+import MenuList from "./pages/MenuList";
+import Categories from "./pages/Categories";
 
 const MenuRoutes = () => {
   return (
     <Routes>
-      <Route path="/" element={<MenuList />} />
-      <Route path="/categories" element={<Categories />} />
+      <Route index element={<MenuList />} />
+      <Route path="categories" element={<Categories />} />
     </Routes>
   );
 };

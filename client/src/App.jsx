@@ -1,5 +1,6 @@
+//client\src\App.jsx
 import { Routes, Route } from "react-router-dom";
-import MenuRoutes from "./menu/MenuRoutes";
+import MenuRoutes from "./menu/menuRoutes";
 
 function App() {
   return (
