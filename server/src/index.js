@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import menuRoutes from "./menu/menu.routes.js";
+import inventoryRoutes from"./inventory/inventory.routes.js"
 
 const app = express();
 
@@ -19,5 +20,6 @@ app.get("/", (req, res) => {
 
 // Mounted with no auth for now — role guards get added here later
 app.use("/api", menuRoutes);
+app.use("/api/inventory", inventoryRoutes)
 
 export default app;
