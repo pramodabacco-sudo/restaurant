@@ -169,8 +169,11 @@ model Supplier {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  purchaseOrders  PurchaseOrder[]
-  purchaseEntries PurchaseEntry[]
+  purchaseOrders    PurchaseOrder[]
+  purchaseEntries   PurchaseEntry[]
+  expenses          Expense[]
+  recurringExpenses RecurringExpense[]
+  assetPurchases    AssetPurchase[]
 
   @@map("suppliers")
 }
@@ -295,9 +298,14 @@ model StockMovement {
   newStock      Decimal           @db.Decimal(14, 4)
   reason        String?
   referenceId   String? // e.g. PurchaseEntry.id, Wastage.id, order id
-  userId        String?
-  store         String            @default("Main Store")
-  createdAt     DateTime          @default(now())
+
+  // was a plain String before Employee existed — now an optional FK.
+  // Scalar column name unchanged, so existing writes of a raw id string still work.
+  userId String?
+  user   Employee? @relation("StockMovementsByUser", fields: [userId], references: [id])
+
+  store     String   @default("Main Store")
+  createdAt DateTime @default(now())
 
   @@index([ingredientId, createdAt])
   @@map("stock_movements")
@@ -325,8 +333,12 @@ model Wastage {
   quantity     Decimal    @db.Decimal(14, 4)
   reason       String
   cost         Decimal    @db.Decimal(12, 2)
-  employeeId   String?
-  createdAt    DateTime   @default(now())
+
+  // now an optional FK to Employee instead of a loose string
+  employeeId String?
+  employee   Employee? @relation("WastageByEmployee", fields: [employeeId], references: [id])
+
+  createdAt DateTime @default(now())
 
   @@map("wastage")
 }
@@ -370,4 +382,570 @@ model InventoryAlert {
   createdAt    DateTime   @default(now())
 
   @@map("inventory_alerts")
+}
+
+enum ExpenseStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  OVERDUE
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  UPI
+  BANK_TRANSFER
+  CHEQUE
+  OTHER
+}
+
+enum RecurringFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum ApprovalAction {
+  APPROVED
+  REJECTED
+}
+
+enum ApprovalLevel {
+  MANAGER
+  FINANCE
+}
+
+model ExpenseCategory {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+  isDefault   Boolean @default(false) // true for seeded defaults (Rent, Electricity, etc.)
+  isEnabled   Boolean @default(true)
+
+  expenses          Expense[]
+  recurringExpenses RecurringExpense[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("expense_categories")
+}
+
+// Core expense record. Utility bills and petty cash entries also live here
+// (via isPettyCash / pettyCashSessionId) so P&L can sum one table for totals,
+// while UtilityBill/PettyCashSession hold the feature-specific metadata.
+model Expense {
+  id            String @id @default(uuid())
+  expenseNumber String @unique // auto-generated, e.g. EXP-000123
+
+  categoryId String
+  category   ExpenseCategory @relation(fields: [categoryId], references: [id])
+
+  title       String
+  description String?
+  expenseDate DateTime @default(now())
+
+  amount    Decimal @db.Decimal(12, 2)
+  gstAmount Decimal @default(0) @db.Decimal(12, 2)
+  discount  Decimal @default(0) @db.Decimal(12, 2)
+  totalPaid Decimal @db.Decimal(12, 2)
+
+  supplierId    String?
+  supplier      Supplier? @relation(fields: [supplierId], references: [id])
+  invoiceNumber String?
+
+  paymentMethod        PaymentMethod?
+  paymentStatus        PaymentStatus  @default(UNPAID)
+  paymentDate          DateTime?
+  transactionReference String?
+
+  status ExpenseStatus @default(DRAFT)
+  store  String        @default("Main Store")
+
+  isPettyCash        Boolean           @default(false)
+  pettyCashSessionId String?
+  pettyCashSession   PettyCashSession? @relation(fields: [pettyCashSessionId], references: [id])
+
+  recurringExpenseId String?
+  recurringExpense   RecurringExpense? @relation(fields: [recurringExpenseId], references: [id])
+
+  // now an optional FK to Employee instead of a loose string
+  createdBy         String?
+  createdByEmployee Employee? @relation("ExpensesCreatedBy", fields: [createdBy], references: [id])
+
+  attachments ExpenseAttachment[]
+  approvals   ExpenseApproval[]
+  auditLogs   ExpenseAuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expenseDate])
+  @@index([status])
+  @@map("expenses")
+}
+
+model ExpenseAttachment {
+  id         String   @id @default(uuid())
+  expenseId  String
+  expense    Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  fileKey    String // R2 object key
+  fileUrl    String
+  fileType   String // pdf / jpg / png
+  uploadedAt DateTime @default(now())
+
+  @@map("expense_attachments")
+}
+
+// Template for recurring expenses (Rent, Internet, Software Subscription...).
+// A scheduler reads isActive + nextDueDate and spins off real Expense rows.
+model RecurringExpense {
+  id         String          @id @default(uuid())
+  categoryId String
+  category   ExpenseCategory @relation(fields: [categoryId], references: [id])
+
+  title  String
+  amount Decimal @db.Decimal(12, 2)
+
+  frequency          RecurringFrequency
+  nextDueDate        DateTime
+  reminderDaysBefore Int                @default(3)
+  isActive           Boolean            @default(true)
+
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+  store      String    @default("Main Store")
+
+  expenses Expense[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("recurring_expenses")
+}
+
+// Audit trail for the approval workflow (Manager -> Finance).
+model ExpenseApproval {
+  id        String         @id @default(uuid())
+  expenseId String
+  expense   Expense        @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  action    ApprovalAction
+  level     ApprovalLevel
+
+  // now an optional FK to Employee instead of a loose string
+  approverId String?
+  approver   Employee? @relation("ExpenseApprovalsByApprover", fields: [approverId], references: [id])
+
+  comment   String?
+  createdAt DateTime @default(now())
+
+  @@map("expense_approvals")
+}
+
+// HR-side monthly payroll computation for an employee (basic + allowances -
+// deductions = net). When processed/paid, a corresponding SalaryExpense row
+// is created below so it lands in the accounting/P&L ledger too.
+model PayrollRecord {
+  id         String   @id @default(uuid())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+
+  month       String // "2026-07"
+  basicSalary Decimal      @db.Decimal(12, 2)
+  allowances  Decimal      @default(0) @db.Decimal(12, 2)
+  bonus       Decimal      @default(0) @db.Decimal(12, 2)
+  overtimePay Decimal      @default(0) @db.Decimal(12, 2)
+  deductions  Decimal      @default(0) @db.Decimal(12, 2)
+  netSalary   Decimal      @db.Decimal(12, 2)
+  status      SalaryStatus @default(PENDING)
+
+  // filled in once this payroll run has been pushed into the Expense ledger
+  salaryExpenseId String?        @unique
+  salaryExpense   SalaryExpense? @relation(fields: [salaryExpenseId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, month])
+  @@map("payroll_records")
+}
+
+// Accounting-side ledger entry (unchanged shape, now linked to a real Employee
+// where one exists; employeeName kept for cases without a system account).
+model SalaryExpense {
+  id           String    @id @default(uuid())
+  employeeName String
+  employeeId   String?
+  employee     Employee? @relation("SalaryExpensesByEmployee", fields: [employeeId], references: [id])
+  salaryMonth  DateTime // stored as the 1st of the month
+
+  baseSalary Decimal @db.Decimal(12, 2)
+  bonus      Decimal @default(0) @db.Decimal(12, 2)
+  incentives Decimal @default(0) @db.Decimal(12, 2)
+  overtime   Decimal @default(0) @db.Decimal(12, 2)
+  deductions Decimal @default(0) @db.Decimal(12, 2)
+  netSalary  Decimal @db.Decimal(12, 2)
+
+  paymentStatus PaymentStatus @default(UNPAID)
+  paymentDate   DateTime?
+  store         String        @default("Main Store")
+
+  payrollRecord PayrollRecord?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([salaryMonth])
+  @@map("salary_expenses")
+}
+
+model UtilityBill {
+  id                 String        @id @default(uuid())
+  utilityType        String // Electricity, Water, Gas, Internet
+  billNumber         String?
+  billingPeriodStart DateTime
+  billingPeriodEnd   DateTime
+  dueDate            DateTime
+  paymentDate        DateTime?
+  amount             Decimal       @db.Decimal(12, 2)
+  paymentStatus      PaymentStatus @default(UNPAID)
+  store              String        @default("Main Store")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dueDate])
+  @@map("utility_bills")
+}
+
+// A session/ledger period (e.g. one per day or week per store).
+// Individual petty cash spends are Expense rows with isPettyCash=true,
+// linked back here via pettyCashSessionId.
+model PettyCashSession {
+  id             String    @id @default(uuid())
+  store          String    @default("Main Store")
+  periodStart    DateTime
+  periodEnd      DateTime?
+  openingBalance Decimal   @db.Decimal(12, 2)
+  closingBalance Decimal?  @db.Decimal(12, 2)
+  isClosed       Boolean   @default(false)
+
+  expenses Expense[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("petty_cash_sessions")
+}
+
+model AssetPurchase {
+  id             String    @id @default(uuid())
+  assetName      String
+  assetCategory  String? // Furniture, Kitchen Equipment, Computers, Printers, POS Devices
+  purchaseDate   DateTime  @default(now())
+  cost           Decimal   @db.Decimal(12, 2)
+  warrantyExpiry DateTime?
+
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+  store      String    @default("Main Store")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("asset_purchases")
+}
+
+model ExpenseAuditLog {
+  id        String  @id @default(uuid())
+  expenseId String
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  action    String // CREATE, UPDATE, DELETE, APPROVE, REJECT
+
+  // now an optional FK to Employee instead of a loose string
+  changedBy         String?
+  changedByEmployee Employee? @relation("ExpenseAuditLogsByEmployee", fields: [changedBy], references: [id])
+
+  oldValue  Json?
+  newValue  Json?
+  createdAt DateTime @default(now())
+
+  @@map("expense_audit_logs")
+}
+
+// ─────────────────────────────────────────────
+// EMPLOYEE & STAFF MANAGEMENT
+// ─────────────────────────────────────────────
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  RESIGNED
+  TERMINATED
+}
+
+enum RoleName {
+  OWNER
+  ADMIN
+  MANAGER
+  CASHIER
+  CHEF
+  WAITER
+  STORE_KEEPER
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  LEAVE
+  HOLIDAY
+}
+
+enum AttendanceEventType {
+  CLOCK_IN
+  CLOCK_OUT
+  BREAK_START
+  BREAK_END
+}
+
+enum LeaveType {
+  CASUAL
+  SICK
+  PAID
+  EMERGENCY
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SalaryStatus {
+  PAID
+  PENDING
+}
+
+model Employee {
+  id               String    @id @default(uuid())
+  employeeCode     String    @unique // auto-generated, e.g. EMP-0001
+  fullName         String
+  photoUrl         String?
+  gender           String?
+  dob              DateTime?
+  mobile           String?
+  email            String?   @unique
+  emergencyContact String?
+
+  department     String // free text — Kitchen, Service, Inventory...
+  designation    String // free text — Chef, Waiter, Cashier...
+  joiningDate    DateTime
+  employmentType String? // free text — full-time / part-time / contract
+  status         EmployeeStatus @default(ACTIVE)
+  store          String         @default("Main Store") // matches store convention used across inventory/expenses
+
+  address            EmployeeAddress?
+  userAccount        UserAccount?
+  attendance         Attendance[]
+  attendanceLogs     AttendanceLog[]
+  shiftAssignments   ShiftAssignment[]
+  leaveRequests      LeaveRequest[]
+  approvedLeaves     LeaveRequest[]      @relation("LeaveApprovedBy")
+  payrollRecords     PayrollRecord[]
+  incentives         Incentive[]
+  approvedIncentives Incentive[]         @relation("IncentiveApprovedBy")
+  performanceRecords PerformanceRecord[]
+  activityLogs       ActivityLog[]
+
+  // reverse relations into existing modules
+  stockMovements   StockMovement[]   @relation("StockMovementsByUser")
+  wastageRecords   Wastage[]         @relation("WastageByEmployee")
+  expensesCreated  Expense[]         @relation("ExpensesCreatedBy")
+  expenseApprovals ExpenseApproval[] @relation("ExpenseApprovalsByApprover")
+  salaryExpenses   SalaryExpense[]   @relation("SalaryExpensesByEmployee")
+  expenseAuditLogs ExpenseAuditLog[] @relation("ExpenseAuditLogsByEmployee")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([department])
+  @@index([designation])
+  @@index([status])
+  @@map("employees")
+}
+
+model EmployeeAddress {
+  id         String   @id @default(uuid())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String   @unique
+
+  houseNo String?
+  street  String?
+  city    String?
+  state   String?
+  pincode String?
+
+  @@map("employee_addresses")
+}
+
+// Login schema only — no auth middleware wired yet.
+model UserAccount {
+  id         String   @id @default(uuid())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String   @unique
+
+  username     String    @unique
+  email        String?   @unique
+  passwordHash String
+  pin          String? // optional, for POS quick login
+  role         RoleName
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@map("user_accounts")
+}
+
+// Daily rollup — one row per employee per day.
+model Attendance {
+  id         String   @id @default(uuid())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+
+  date          DateTime         @db.Date
+  clockIn       DateTime?
+  clockOut      DateTime?
+  workingHours  Decimal?         @db.Decimal(5, 2)
+  overtimeHours Decimal?         @db.Decimal(5, 2)
+  status        AttendanceStatus @default(PRESENT)
+  store         String           @default("Main Store")
+
+  @@unique([employeeId, date])
+  @@index([date])
+  @@map("attendance")
+}
+
+// Raw event log — clock-in/out and break events, multiple per day.
+model AttendanceLog {
+  id         String   @id @default(uuid())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+
+  eventType AttendanceEventType
+  timestamp DateTime            @default(now())
+  ipAddress String?
+  device    String?
+
+  @@index([employeeId, timestamp])
+  @@map("attendance_logs")
+}
+
+model Shift {
+  id        String @id @default(uuid())
+  name      String // Morning / Afternoon / Night / Custom
+  startTime String // "09:00"
+  endTime   String // "17:00"
+  store     String @default("Main Store")
+
+  assignments ShiftAssignment[]
+
+  createdAt DateTime @default(now())
+
+  @@map("shifts")
+}
+
+model ShiftAssignment {
+  id         String   @id @default(uuid())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+  shift      Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  shiftId    String
+
+  date DateTime @db.Date
+
+  @@unique([employeeId, date])
+  @@index([shiftId, date])
+  @@map("shift_assignments")
+}
+
+model LeaveRequest {
+  id         String   @id @default(uuid())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+
+  type     LeaveType
+  fromDate DateTime
+  toDate   DateTime
+  reason   String?
+  status   LeaveStatus @default(PENDING)
+
+  approvedById String?
+  approvedBy   Employee? @relation("LeaveApprovedBy", fields: [approvedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId, status])
+  @@map("leave_requests")
+}
+
+model Incentive {
+  id         String   @id @default(uuid())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+
+  type   String // free text — Sales Target Bonus, Attendance Bonus, Festival Bonus
+  amount Decimal @db.Decimal(12, 2)
+  reason String?
+
+  approvedById String?
+  approvedBy   Employee? @relation("IncentiveApprovedBy", fields: [approvedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("incentives")
+}
+
+model PerformanceRecord {
+  id         String   @id @default(uuid())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+
+  period         String // "2026-07"
+  ordersServed   Int?     @default(0)
+  salesGenerated Decimal? @default(0) @db.Decimal(12, 2)
+  customerRating Decimal? @db.Decimal(3, 2)
+  lateArrivals   Int?     @default(0)
+
+  @@unique([employeeId, period])
+  @@map("performance_records")
+}
+
+model ActivityLog {
+  id         String   @id @default(uuid())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+
+  action    String // e.g. "Login", "Created Order", "Updated Inventory"
+  ipAddress String?
+  device    String?
+  createdAt DateTime @default(now())
+
+  @@index([employeeId, createdAt])
+  @@map("employee_activity_logs")
 }
