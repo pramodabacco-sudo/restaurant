@@ -21,7 +21,7 @@ import Dashboard from "./dashboard/Dashboard";
 import MenuRoutes from "./menu/menuRoutes";
 import PosRoutes from "./pos/posRoutes";
 import SettingsRoutes from "./settings/settingsRoutes";
-
+import KitchenRoutes from "./pos/Kitchen/KitchenDisplayScreen";
 function App() {
   return (
     <Routes>
@@ -43,6 +43,7 @@ function App() {
           {/* Modules */}
           <Route path="/menu/*" element={<MenuRoutes />} />
           <Route path="/pos/*" element={<PosRoutes />} />
+          <Route path="/kitchen/*" element={<KitchenRoutes />} />
           <Route path="/settings/*" element={<SettingsRoutes />} />
         </Route>
       </Route>
