@@ -53,7 +53,7 @@ const Dashboard = () => {
   const maxTotal = Math.max(1, ...dashboard.categoryWise.map((c) => c.total || 0));
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-2 max-w-6xl mx-auto">
       {/* Header actions */}
       <div className="flex items-center justify-end gap-3 mb-6">
         <button

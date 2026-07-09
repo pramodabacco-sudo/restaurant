@@ -46,7 +46,7 @@ const Reports = () => {
   );
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="">
       {/* Filters */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

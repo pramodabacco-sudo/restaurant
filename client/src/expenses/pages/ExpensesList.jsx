@@ -89,7 +89,7 @@ const ExpensesList = () => {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-2 max-w-6xl mx-auto">
       <div className="flex flex-wrap items-center justify-end gap-3 mb-6">
         <button
           onClick={() => handleExport("filtered")}

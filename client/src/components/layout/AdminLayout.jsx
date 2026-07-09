@@ -69,7 +69,7 @@ const AdminLayout = () => {
 
         {/* Main */}
 
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-2">
           <div className="max-w-[1800px] mx-auto">
             {/* ================= PAGE CONTAINER ================= */}
 
