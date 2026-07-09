@@ -10,5 +10,6 @@ router.post("/check-in", attendanceController.checkIn);
 router.post("/check-out", attendanceController.checkOut);
 router.post("/break", attendanceController.recordBreak);
 router.put("/status", attendanceController.markStatus);
+router.post("/close-day", attendanceController.closeDayAttendance);
 
 export default router;

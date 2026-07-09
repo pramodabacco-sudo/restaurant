@@ -1,25 +1,19 @@
 // client/src/inventory/InventoryLayout.jsx
-// No sidebar here — AdminLayout already provides the app shell and already
-// has an "Inventory" entry in its own Sidebar (pointing at /inventory).
-// This just renders a horizontal sub-nav for the inventory section's own
-// pages, the same way /menu's sub-pages (categories, subcategories, etc.)
-// appear to work based on Header's breadcrumb/title map.
+// Top-level sub-nav for the inventory section (sits inside AdminLayout's
+// content area — no sidebar of its own, since AdminLayout already has one).
+// Reduced from 13 flat tabs down to 6 groups: related screens (Ingredients/
+// Categories/Units/Suppliers, and Stock Ledger/Adjustments/Wastage/Expiry)
+// are combined behind their own secondary tab bar — see CatalogLayout.jsx
+// and StockLayout.jsx.
 import { NavLink, Outlet } from "react-router-dom";
 import "./theme.css";
 
 const TABS = [
   { to: "/inventory", label: "Dashboard", end: true },
   { to: "/inventory/alerts", label: "Alerts" },
-  { to: "/inventory/ingredients", label: "Ingredients" },
-  { to: "/inventory/categories", label: "Categories" },
-  { to: "/inventory/units", label: "Units" },
-  { to: "/inventory/suppliers", label: "Suppliers" },
-  { to: "/inventory/purchase-orders", label: "Purchase Orders" },
+  { to: "/inventory/catalog", label: "Catalog" },
   { to: "/inventory/purchase-entries", label: "Purchase Entries" },
-  { to: "/inventory/movements", label: "Stock Ledger" },
-  { to: "/inventory/adjustments", label: "Adjustments" },
-  { to: "/inventory/wastage", label: "Wastage" },
-  { to: "/inventory/expiry", label: "Expiry Batches" },
+  { to: "/inventory/stock", label: "Stock" },
   { to: "/inventory/recipes", label: "Recipes" },
 ];
 

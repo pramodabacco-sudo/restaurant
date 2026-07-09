@@ -1,12 +1,13 @@
 //client\src\inventory\inventoryRoutes.jsx
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import InventoryLayout from "./InventoryLayout";
+import CatalogLayout from "./pages/CatalogLayout";
+import StockLayout from "./pages/StockLayout";
 import Dashboard from "./pages/Dashboard";
 import UnitsPage from "./pages/UnitsPage";
 import CategoriesPage from "./pages/CategoriesPage";
 import SuppliersPage from "./pages/SuppliersPage";
 import IngredientsPage from "./pages/IngredientsPage";
-import PurchaseOrdersPage from "./pages/PurchaseOrdersPage";
 import PurchaseEntriesPage from "./pages/PurchaseEntriesPage";
 import StockMovementsPage from "./pages/StockMovementsPage";
 import AdjustmentsPage from "./pages/AdjustmentsPage";
@@ -21,16 +22,27 @@ const InventoryRoutes = () => {
       <Route element={<InventoryLayout />}>
         <Route index element={<Dashboard />} />
         <Route path="alerts" element={<AlertsPage />} />
-        <Route path="ingredients" element={<IngredientsPage />} />
-        <Route path="categories" element={<CategoriesPage />} />
-        <Route path="units" element={<UnitsPage />} />
-        <Route path="suppliers" element={<SuppliersPage />} />
-        <Route path="purchase-orders" element={<PurchaseOrdersPage />} />
+
+        {/* Catalog group: Ingredients / Categories / Units / Suppliers */}
+        <Route path="catalog" element={<CatalogLayout />}>
+          <Route index element={<Navigate to="ingredients" replace />} />
+          <Route path="ingredients" element={<IngredientsPage />} />
+          <Route path="categories" element={<CategoriesPage />} />
+          <Route path="units" element={<UnitsPage />} />
+          <Route path="suppliers" element={<SuppliersPage />} />
+        </Route>
+
         <Route path="purchase-entries" element={<PurchaseEntriesPage />} />
-        <Route path="movements" element={<StockMovementsPage />} />
-        <Route path="adjustments" element={<AdjustmentsPage />} />
-        <Route path="wastage" element={<WastagePage />} />
-        <Route path="expiry" element={<ExpiryBatchesPage />} />
+
+        {/* Stock group: Ledger / Adjustments / Wastage / Expiry Batches */}
+        <Route path="stock" element={<StockLayout />}>
+          <Route index element={<Navigate to="ledger" replace />} />
+          <Route path="ledger" element={<StockMovementsPage />} />
+          <Route path="adjustments" element={<AdjustmentsPage />} />
+          <Route path="wastage" element={<WastagePage />} />
+          <Route path="expiry" element={<ExpiryBatchesPage />} />
+        </Route>
+
         <Route path="recipes" element={<RecipesPage />} />
       </Route>
     </Routes>

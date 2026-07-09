@@ -45,7 +45,8 @@ export async function checkOut(employeeId, { ipAddress, device } = {}) {
       data: {
         clockOut: now,
         workingHours: Math.round(workingHours * 100) / 100,
-        overtimeHours: workingHours > 9 ? Math.round((workingHours - 9) * 100) / 100 : 0,
+        overtimeHours:
+          workingHours > 9 ? Math.round((workingHours - 9) * 100) / 100 : 0,
       },
     }),
     prisma.attendanceLog.create({
@@ -56,14 +57,25 @@ export async function checkOut(employeeId, { ipAddress, device } = {}) {
   return attendance;
 }
 
-export async function recordBreak(employeeId, type, { ipAddress, device } = {}) {
+export async function recordBreak(
+  employeeId,
+  type,
+  { ipAddress, device } = {},
+) {
   // type: "BREAK_START" | "BREAK_END"
   return prisma.attendanceLog.create({
     data: { employeeId, eventType: type, ipAddress, device },
   });
 }
 
-export async function listAttendance({ employeeId, from, to, status, page = 1, limit = 30 }) {
+export async function listAttendance({
+  employeeId,
+  from,
+  to,
+  status,
+  page = 1,
+  limit = 30,
+}) {
   const where = {
     ...(employeeId ? { employeeId } : {}),
     ...(status ? { status } : {}),
@@ -114,4 +126,44 @@ export async function markStatus(employeeId, date, status) {
     create: { employeeId, date: startOfDay(date), status },
     update: { status },
   });
+}
+
+// CHANGED: "close the day" — for every ACTIVE employee who does NOT already
+// have an attendance row for the given date, create one with status ABSENT.
+// Employees who checked in already have PRESENT (or HALF_DAY), and employees
+// whose leave was approved already have LEAVE written in by
+// leaves.service#decideLeaveRequest — this only fills in the remaining gap:
+// "nothing recorded at all" => treated as an unmarked absence.
+// Intended to be called once per day (e.g. via a scheduled job just after
+// midnight, or manually by an Owner from the UI) for the day that just ended.
+export async function markAbsentees(dateInput) {
+  const date = startOfDay(dateInput);
+
+  const [alreadyMarked, activeEmployees] = await Promise.all([
+    prisma.attendance.findMany({
+      where: { date },
+      select: { employeeId: true },
+    }),
+    prisma.employee.findMany({
+      where: { status: "ACTIVE" },
+      select: { id: true },
+    }),
+  ]);
+
+  const markedIds = new Set(alreadyMarked.map((a) => a.employeeId));
+  const toMark = activeEmployees.filter((e) => !markedIds.has(e.id));
+
+  if (toMark.length === 0) {
+    return { date, marked: 0 };
+  }
+
+  await prisma.$transaction(
+    toMark.map((e) =>
+      prisma.attendance.create({
+        data: { employeeId: e.id, date, status: "ABSENT" },
+      }),
+    ),
+  );
+
+  return { date, marked: toMark.length };
 }
