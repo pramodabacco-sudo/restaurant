@@ -13,9 +13,19 @@ async function generateEmployeeCode() {
   return `EMP-${String(next).padStart(4, "0")}`;
 }
 
-export async function listEmployees({ search, department, designation, status, page = 1, limit = 20 }) {
+export async function listEmployees({
+  search,
+  department,
+  designation,
+  status,
+  page = 1,
+  limit = 20,
+}) {
   const where = {
-    ...(status ? { status } : {}),
+    // CHANGED: when no status filter is supplied, hide TERMINATED (soft-deleted)
+    // employees by default instead of showing every record ever created.
+    // Callers can still pass status=TERMINATED explicitly to see them.
+    ...(status ? { status } : { status: { not: "TERMINATED" } }),
     ...(department ? { department } : {}),
     ...(designation ? { designation } : {}),
     ...(search
@@ -23,6 +33,10 @@ export async function listEmployees({ search, department, designation, status, p
           OR: [
             { fullName: { contains: search, mode: "insensitive" } },
             { employeeCode: { contains: search, mode: "insensitive" } },
+            // CHANGED: search now also matches mobile and email so the
+            // admin UI's single search box actually finds people by contact info.
+            { mobile: { contains: search, mode: "insensitive" } },
+            { email: { contains: search, mode: "insensitive" } },
           ],
         }
       : {}),
@@ -31,7 +45,10 @@ export async function listEmployees({ search, department, designation, status, p
   const [data, total] = await Promise.all([
     prisma.employee.findMany({
       where,
-      include: { address: true, userAccount: { select: { username: true, role: true, isActive: true } } },
+      include: {
+        address: true,
+        userAccount: { select: { username: true, role: true, isActive: true } },
+      },
       orderBy: { createdAt: "desc" },
       skip: (Number(page) - 1) * Number(limit),
       take: Number(limit),
@@ -47,7 +64,15 @@ export async function getEmployeeById(id) {
     where: { id },
     include: {
       address: true,
-      userAccount: { select: { username: true, email: true, role: true, isActive: true, lastLoginAt: true } },
+      userAccount: {
+        select: {
+          username: true,
+          email: true,
+          role: true,
+          isActive: true,
+          lastLoginAt: true,
+        },
+      },
     },
   });
 }
@@ -56,70 +81,131 @@ export async function createEmployee(payload) {
   const { address, ...employeeData } = payload;
   const employeeCode = await generateEmployeeCode();
 
-  return prisma.employee.create({
-    data: {
-      ...employeeData,
-      employeeCode,
-      ...(address
-        ? {
-            address: { create: address },
-          }
-        : {}),
-    },
-    include: { address: true },
-  });
+  try {
+    return await prisma.employee.create({
+      data: {
+        ...employeeData,
+        employeeCode,
+        ...(address
+          ? {
+              address: { create: address },
+            }
+          : {}),
+      },
+      include: { address: true },
+    });
+  } catch (err) {
+    // CHANGED: surface a friendly message instead of a raw Prisma error
+    // (e.g. duplicate email, which is @unique on Employee).
+    if (err.code === "P2002") {
+      const field = err.meta?.target?.join(", ") || "field";
+      throw new Error(`An employee with this ${field} already exists.`);
+    }
+    throw err;
+  }
 }
 
 export async function updateEmployee(id, payload) {
   const { address, ...employeeData } = payload;
 
-  return prisma.employee.update({
-    where: { id },
-    data: {
-      ...employeeData,
-      ...(address
-        ? {
-            address: {
-              upsert: {
-                create: address,
-                update: address,
+  try {
+    return await prisma.employee.update({
+      where: { id },
+      data: {
+        ...employeeData,
+        ...(address
+          ? {
+              address: {
+                upsert: {
+                  create: address,
+                  update: address,
+                },
               },
-            },
-          }
-        : {}),
-    },
-    include: { address: true },
-  });
+            }
+          : {}),
+      },
+      include: { address: true },
+    });
+  } catch (err) {
+    if (err.code === "P2002") {
+      const field = err.meta?.target?.join(", ") || "field";
+      throw new Error(`Another employee already uses this ${field}.`);
+    }
+    if (err.code === "P2025") {
+      throw new Error("Employee not found.");
+    }
+    throw err;
+  }
 }
 
 export async function deleteEmployee(id) {
   // Soft-delete preferred over hard delete so history (attendance, salary, etc.) isn't orphaned.
-  return prisma.employee.update({
-    where: { id },
-    data: { status: "TERMINATED" },
-  });
+  try {
+    return await prisma.employee.update({
+      where: { id },
+      data: { status: "TERMINATED" },
+    });
+  } catch (err) {
+    if (err.code === "P2025") {
+      throw new Error("Employee not found.");
+    }
+    throw err;
+  }
 }
 
-export async function createLoginAccount(employeeId, { username, email, password, pin, role }) {
+export async function createLoginAccount(
+  employeeId,
+  { username, email, password, pin, role },
+) {
+  if (!username || !password) {
+    throw new Error("Username and password are required.");
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
 
-  return prisma.userAccount.create({
-    data: { employeeId, username, email, passwordHash, pin, role },
-    select: { id: true, username: true, email: true, role: true, isActive: true },
-  });
+  try {
+    return await prisma.userAccount.create({
+      data: { employeeId, username, email, passwordHash, pin, role },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        isActive: true,
+      },
+    });
+  } catch (err) {
+    // CHANGED: friendly message for duplicate username/email or an employee
+    // that already has an account (employeeId is @unique on UserAccount),
+    // instead of leaking the raw Prisma constraint error to the client.
+    if (err.code === "P2002") {
+      const field = err.meta?.target?.join(", ") || "value";
+      throw new Error(
+        `This ${field} is already in use. Please choose a different one.`,
+      );
+    }
+    throw err;
+  }
 }
 
 export async function getDashboardStats() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [total, present, absent, onLeave, pendingLeaveRequests] = await Promise.all([
-    prisma.employee.count({ where: { status: "ACTIVE" } }),
-    prisma.attendance.count({ where: { date: today, status: "PRESENT" } }),
-    prisma.attendance.count({ where: { date: today, status: "ABSENT" } }),
-    prisma.attendance.count({ where: { date: today, status: "LEAVE" } }),
-    prisma.leaveRequest.count({ where: { status: "PENDING" } }),
-  ]);
+  const [total, present, absent, onLeave, pendingLeaveRequests] =
+    await Promise.all([
+      prisma.employee.count({ where: { status: "ACTIVE" } }),
+      prisma.attendance.count({ where: { date: today, status: "PRESENT" } }),
+      prisma.attendance.count({ where: { date: today, status: "ABSENT" } }),
+      prisma.attendance.count({ where: { date: today, status: "LEAVE" } }),
+      prisma.leaveRequest.count({ where: { status: "PENDING" } }),
+    ]);
 
-  return { totalEmployees: total, presentToday: present, absentToday: absent, onLeaveToday: onLeave, pendingLeaveRequests };
+  return {
+    totalEmployees: total,
+    presentToday: present,
+    absentToday: absent,
+    onLeaveToday: onLeave,
+    pendingLeaveRequests,
+  };
 }

@@ -16,6 +16,7 @@ import ProtectedRoute from "./auth/ProtectedRoute";
 import ReportsRoutes from "./reports/reportsRoutes";
 import ProfitLossRoutes from "./profitLoss/profitLossRoutes";
 import InventoryRoutes from "./inventory/inventoryRoutes";
+import EmployeesRoutes from "./employees/employeesRoutes";
 
 // ==============================================
 // Layout
@@ -90,9 +91,13 @@ function App() {
 
           {/* Profit Loss */}
           <Route path="/profit-loss/*" element={<ProfitLossRoutes />} />
+
           {/* Inventory */}
           <Route path="/inventory/*" element={<InventoryRoutes />} />
           <Route path="/expenses/*" element={<ExpenseRoutes />} />
+
+          {/* Employees */}
+          <Route path="/employees/*" element={<EmployeesRoutes />} />
 
           {/* Settings */}
 

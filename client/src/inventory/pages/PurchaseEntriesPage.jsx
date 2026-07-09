@@ -1,4 +1,7 @@
 // client/src/inventory/pages/PurchaseEntriesPage.jsx
+// Purchase Orders were removed from the UI — this is now a direct
+// goods-received form with no "link to PO" step. Purchase Entries alone
+// are what move stock; nothing here depends on an order existing first.
 import { useEffect, useState } from "react";
 import * as inv from "../api/inventoryApi";
 import {
@@ -15,7 +18,6 @@ import {
 } from "../components/ui";
 
 const emptyForm = {
-  purchaseOrderId: "",
   supplierId: "",
   ingredientId: "",
   invoiceNumber: "",
@@ -31,7 +33,6 @@ const PurchaseEntriesPage = () => {
   const [entries, setEntries] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [ingredients, setIngredients] = useState([]);
-  const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -54,7 +55,6 @@ const PurchaseEntriesPage = () => {
     load();
     inv.getSuppliers().then(setSuppliers);
     inv.getIngredients().then(setIngredients);
-    inv.getPurchaseOrders({ status: "ORDERED" }).then(setPurchaseOrders);
   }, []);
 
   const openCreate = () => {
@@ -62,7 +62,9 @@ const PurchaseEntriesPage = () => {
     setModalOpen(true);
   };
 
-  const selectedIngredient = ingredients.find((i) => i.id === form.ingredientId);
+  const selectedIngredient = ingredients.find(
+    (i) => i.id === form.ingredientId,
+  );
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -71,7 +73,6 @@ const PurchaseEntriesPage = () => {
     try {
       await inv.createPurchaseEntry({
         ...form,
-        purchaseOrderId: form.purchaseOrderId || undefined,
         expiryDate: form.expiryDate || undefined,
         quantityReceived: Number(form.quantityReceived),
         purchasePrice: Number(form.purchasePrice),
@@ -81,7 +82,9 @@ const PurchaseEntriesPage = () => {
       setModalOpen(false);
       load();
     } catch (e2) {
-      setError(e2?.response?.data?.message || "Failed to record purchase entry");
+      setError(
+        e2?.response?.data?.message || "Failed to record purchase entry",
+      );
     } finally {
       setSaving(false);
     }
@@ -105,17 +108,34 @@ const PurchaseEntriesPage = () => {
             hint="Record goods received to bring stock in and update average cost."
           />
         ) : (
-          <Table columns={["Date", "Ingredient", "Supplier", "Qty Received", "Price/Unit", "Total", "Invoice"]}>
+          <Table
+            columns={[
+              "Date",
+              "Ingredient",
+              "Supplier",
+              "Qty Received",
+              "Price/Unit",
+              "Total",
+              "Invoice",
+            ]}
+          >
             {entries.map((e) => (
               <tr key={e.id}>
-                <td className="px-4 py-2.5">{new Date(e.createdAt).toLocaleDateString()}</td>
+                <td className="px-4 py-2.5">
+                  {new Date(e.createdAt).toLocaleDateString()}
+                </td>
                 <td className="px-4 py-2.5">{e.ingredient?.name}</td>
                 <td className="px-4 py-2.5">{e.supplier?.name}</td>
                 <td className="px-4 py-2.5 inv-mono">
-                  {e.quantityReceived} {e.ingredient?.purchaseUnit?.abbreviation}
+                  {e.quantityReceived}{" "}
+                  {e.ingredient?.purchaseUnit?.abbreviation}
                 </td>
-                <td className="px-4 py-2.5 inv-mono">₹{Number(e.purchasePrice).toFixed(2)}</td>
-                <td className="px-4 py-2.5 inv-mono">₹{Number(e.totalAmount).toLocaleString("en-IN")}</td>
+                <td className="px-4 py-2.5 inv-mono">
+                  ₹{Number(e.purchasePrice).toFixed(2)}
+                </td>
+                <td className="px-4 py-2.5 inv-mono">
+                  ₹{Number(e.totalAmount).toLocaleString("en-IN")}
+                </td>
                 <td className="px-4 py-2.5">{e.invoiceNumber || "—"}</td>
               </tr>
             ))}
@@ -123,21 +143,13 @@ const PurchaseEntriesPage = () => {
         )}
       </Card>
 
-      <Modal open={modalOpen} title="Record Goods Received" onClose={() => setModalOpen(false)} wide>
+      <Modal
+        open={modalOpen}
+        title="Record Goods Received"
+        onClose={() => setModalOpen(false)}
+        wide
+      >
         <form onSubmit={handleSave} className="grid grid-cols-2 gap-4">
-          <Field label="Link to Purchase Order (optional)">
-            <Select
-              value={form.purchaseOrderId}
-              onChange={(e) => setForm({ ...form, purchaseOrderId: e.target.value })}
-            >
-              <option value="">None — direct entry</option>
-              {purchaseOrders.map((po) => (
-                <option key={po.id} value={po.id}>
-                  {po.poNumber} — {po.supplier?.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
           <Field label="Supplier">
             <Select
               required
@@ -152,25 +164,27 @@ const PurchaseEntriesPage = () => {
               ))}
             </Select>
           </Field>
-          <div className="col-span-2">
-            <Field label="Ingredient">
-              <Select
-                required
-                value={form.ingredientId}
-                onChange={(e) => setForm({ ...form, ingredientId: e.target.value })}
-              >
-                <option value="">Select…</option>
-                {ingredients.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
+          <Field label="Ingredient">
+            <Select
+              required
+              value={form.ingredientId}
+              onChange={(e) =>
+                setForm({ ...form, ingredientId: e.target.value })
+              }
+            >
+              <option value="">Select…</option>
+              {ingredients.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
           <Field
             label={`Quantity Received${
-              selectedIngredient ? ` (in ${selectedIngredient.purchaseUnit?.name})` : ""
+              selectedIngredient
+                ? ` (in ${selectedIngredient.purchaseUnit?.name})`
+                : ""
             }`}
           >
             <Input
@@ -178,7 +192,9 @@ const PurchaseEntriesPage = () => {
               step="0.0001"
               required
               value={form.quantityReceived}
-              onChange={(e) => setForm({ ...form, quantityReceived: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, quantityReceived: e.target.value })
+              }
             />
           </Field>
           <Field label="Purchase Price (per purchase unit)">
@@ -187,7 +203,9 @@ const PurchaseEntriesPage = () => {
               step="0.01"
               required
               value={form.purchasePrice}
-              onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, purchasePrice: e.target.value })
+              }
             />
           </Field>
           <Field label="GST %">
@@ -209,13 +227,17 @@ const PurchaseEntriesPage = () => {
           <Field label="Invoice Number">
             <Input
               value={form.invoiceNumber}
-              onChange={(e) => setForm({ ...form, invoiceNumber: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, invoiceNumber: e.target.value })
+              }
             />
           </Field>
           <Field label="Batch Number">
             <Input
               value={form.batchNumber}
-              onChange={(e) => setForm({ ...form, batchNumber: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, batchNumber: e.target.value })
+              }
             />
           </Field>
           <Field label="Expiry Date (optional)">
@@ -230,16 +252,24 @@ const PurchaseEntriesPage = () => {
             <div className="col-span-2 rounded-md bg-[var(--inv-pine-tint)] px-4 py-2.5 text-sm text-[var(--inv-pine-dark)]">
               This adds{" "}
               <strong>
-                {(Number(form.quantityReceived) * Number(selectedIngredient.conversionRatio)).toFixed(2)}{" "}
+                {(
+                  Number(form.quantityReceived) *
+                  Number(selectedIngredient.conversionRatio)
+                ).toFixed(2)}{" "}
                 {selectedIngredient.consumptionUnit?.abbreviation}
               </strong>{" "}
-              to stock ({selectedIngredient.purchaseUnit?.name} → {selectedIngredient.consumptionUnit?.name}{" "}
-              conversion applied automatically).
+              to stock ({selectedIngredient.purchaseUnit?.name} →{" "}
+              {selectedIngredient.consumptionUnit?.name} conversion applied
+              automatically).
             </div>
           )}
 
           <div className="col-span-2 flex justify-end gap-2 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setModalOpen(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>

@@ -17,7 +17,9 @@ const base = "/inventory";
 
 const buildQuery = (params) => {
   if (!params) return "";
-  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== "");
+  const entries = Object.entries(params).filter(
+    ([, v]) => v !== undefined && v !== "",
+  );
   if (entries.length === 0) return "";
   return `?${new URLSearchParams(entries).toString()}`;
 };
@@ -33,11 +35,13 @@ const unwrap = ({ ok, status, data }) => {
   return data;
 };
 
-const get = (path, params) => apiRequest(`${path}${buildQuery(params)}`).then(unwrap);
+const get = (path, params) =>
+  apiRequest(`${path}${buildQuery(params)}`).then(unwrap);
 const post = (path, body) =>
-  apiRequest(path, { method: "POST", body: body !== undefined ? JSON.stringify(body) : undefined }).then(
-    unwrap
-  );
+  apiRequest(path, {
+    method: "POST",
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  }).then(unwrap);
 const put = (path, body) =>
   apiRequest(path, { method: "PUT", body: JSON.stringify(body) }).then(unwrap);
 const patch = (path, body) =>
@@ -55,23 +59,29 @@ export const deleteUnit = (id) => del(`${base}/units/${id}`);
 
 // ── Ingredient Categories ──
 export const getCategories = () => get(`${base}/ingredient-categories`);
-export const createCategory = (data) => post(`${base}/ingredient-categories`, data);
-export const updateCategory = (id, data) => put(`${base}/ingredient-categories/${id}`, data);
-export const deleteCategory = (id) => del(`${base}/ingredient-categories/${id}`);
+export const createCategory = (data) =>
+  post(`${base}/ingredient-categories`, data);
+export const updateCategory = (id, data) =>
+  put(`${base}/ingredient-categories/${id}`, data);
+export const deleteCategory = (id) =>
+  del(`${base}/ingredient-categories/${id}`);
 
 // ── Suppliers ──
 export const getSuppliers = () => get(`${base}/suppliers`);
 export const getSupplier = (id) => get(`${base}/suppliers/${id}`);
-export const getSupplierHistory = (id) => get(`${base}/suppliers/${id}/history`);
+export const getSupplierHistory = (id) =>
+  get(`${base}/suppliers/${id}/history`);
 export const createSupplier = (data) => post(`${base}/suppliers`, data);
-export const updateSupplier = (id, data) => put(`${base}/suppliers/${id}`, data);
+export const updateSupplier = (id, data) =>
+  put(`${base}/suppliers/${id}`, data);
 export const deleteSupplier = (id) => del(`${base}/suppliers/${id}`);
 
 // ── Ingredients ──
 export const getIngredients = (params) => get(`${base}/ingredients`, params);
 export const getIngredient = (id) => get(`${base}/ingredients/${id}`);
 export const createIngredient = (data) => post(`${base}/ingredients`, data);
-export const updateIngredient = (id, data) => put(`${base}/ingredients/${id}`, data);
+export const updateIngredient = (id, data) =>
+  put(`${base}/ingredients/${id}`, data);
 export const deleteIngredient = (id) => del(`${base}/ingredients/${id}`);
 
 // ── Stock (read-only) ──
@@ -79,17 +89,11 @@ export const getStock = () => get(`${base}/stock`);
 export const getStockByIngredient = (id) => get(`${base}/stock/${id}`);
 export const getDashboardSummary = () => get(`${base}/stock/dashboard`);
 
-// ── Purchase Orders ──
-export const getPurchaseOrders = (params) => get(`${base}/purchase-orders`, params);
-export const getPurchaseOrder = (id) => get(`${base}/purchase-orders/${id}`);
-export const createPurchaseOrder = (data) => post(`${base}/purchase-orders`, data);
-export const updatePurchaseOrderStatus = (id, status) =>
-  patch(`${base}/purchase-orders/${id}/status`, { status });
-export const deletePurchaseOrder = (id) => del(`${base}/purchase-orders/${id}`);
-
 // ── Purchase Entries (goods receipt) ──
-export const getPurchaseEntries = (params) => get(`${base}/purchase-entries`, params);
-export const createPurchaseEntry = (data) => post(`${base}/purchase-entries`, data);
+export const getPurchaseEntries = (params) =>
+  get(`${base}/purchase-entries`, params);
+export const createPurchaseEntry = (data) =>
+  post(`${base}/purchase-entries`, data);
 
 // ── Stock Movements (ledger) ──
 export const getMovements = (params) => get(`${base}/movements`, params);
@@ -117,7 +121,8 @@ export const generateAlerts = () => post(`${base}/alerts/generate`);
 export const resolveAlert = (id) => patch(`${base}/alerts/${id}/resolve`);
 
 // ── Expiry Batches ──
-export const getExpiryBatches = (params) => get(`${base}/expiry-batches`, params);
+export const getExpiryBatches = (params) =>
+  get(`${base}/expiry-batches`, params);
 
 // ── Menu items (for the Recipes screen — reuses the existing menu module) ──
 // Menu's response shape isn't guaranteed to be a bare array the way
