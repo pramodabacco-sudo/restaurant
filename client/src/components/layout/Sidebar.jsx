@@ -88,7 +88,7 @@ const Sidebar = ({ mobileOpen, onClose, collapsed, onToggleCollapse }) => {
     // },
 
     {
-      name: "Billing",
+      name: "Billing & Payments",
       path: "/billing",
       icon: <FiFileText />,
     },
@@ -149,7 +149,7 @@ const Sidebar = ({ mobileOpen, onClose, collapsed, onToggleCollapse }) => {
 
     {
       name: "Orders",
-      path: "/orders",
+      path: "/pos/orders",
       icon: <FiClipboard />,
     },
 
@@ -221,7 +221,7 @@ const Sidebar = ({ mobileOpen, onClose, collapsed, onToggleCollapse }) => {
 
     {
       name: "Orders",
-      path: "/orders",
+      path: "/pos/orders",
       icon: <FiClipboard />,
     },
 
