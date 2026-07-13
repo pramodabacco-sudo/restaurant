@@ -69,7 +69,7 @@ const AdminLayout = () => {
 
         {/* Main */}
 
-        <main className="flex-1 p-2">
+        <main className="flex-1 p-3 sm:p-4 lg:p-6">
           <div className="max-w-[1800px] mx-auto">
             {/* ================= PAGE CONTAINER ================= */}
 
@@ -97,15 +97,6 @@ const AdminLayout = () => {
 
         {/* <Footer /> */}
       </div>
-
-      {/* ================= MOBILE BACKDROP ================= */}
-
-      {mobileSidebarOpen && (
-        <div
-          onClick={closeSidebar}
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 lg:hidden"
-        />
-      )}
 
       {/* ================= SCROLL TO TOP ================= */}
 

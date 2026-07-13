@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 
 import {
@@ -35,6 +35,30 @@ const Sidebar = ({ mobileOpen, onClose, collapsed, onToggleCollapse }) => {
   const { user, logout } = useAuth();
 
   const location = useLocation();
+
+  // =====================================================
+  // MOBILE DRAWER: lock body scroll + close on Escape
+  // =====================================================
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mobileOpen, onClose]);
 
   // =====================================================
   // OWNER MENU

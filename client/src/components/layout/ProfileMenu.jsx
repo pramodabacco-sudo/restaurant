@@ -64,7 +64,7 @@ const ProfileMenu = () => {
           {user?.name?.charAt(0) || "R"}
         </div>
 
-        <div className="hidden md:block text-left">
+        <div className="hidden lg:block text-left">
           <h4 className="font-semibold text-[#1F2937] dark:text-white leading-tight">
             {user?.name || "Restaurant User"}
           </h4>

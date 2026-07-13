@@ -141,7 +141,7 @@ const Header = ({ onMenuClick }) => {
             <FiMenu size={20} className="text-[#1F2937] dark:text-white" />
           </button>
 
-          <div className="min-w-0">
+          <div className="hidden md:block min-w-0">
             <h1 className="text-2xl font-bold text-[#1F2937] dark:text-white truncate">{pageTitle}</h1>
 
             <div className="flex items-center gap-2 mt-1 text-sm text-[#6B7280] dark:text-[#9CA8A0] overflow-x-auto">
@@ -164,7 +164,7 @@ const Header = ({ onMenuClick }) => {
         <div className="flex items-center gap-4 flex-shrink-0">
           {/* Search */}
 
-          <div className="hidden md:flex items-center relative">
+          <div className="hidden lg:flex items-center relative">
             <FiSearch className="absolute left-4 text-[#9CA3AF] dark:text-[#6B7280]" />
 
             <input
@@ -221,9 +221,29 @@ const Header = ({ onMenuClick }) => {
         </div>
       </div>
 
-      {/* ================= MOBILE SEARCH ================= */}
+      {/* ================= MOBILE PAGE TITLE ================= */}
 
       <div className="px-6 pb-4 md:hidden">
+        <h1 className="text-xl font-bold text-[#1F2937] dark:text-white truncate">{pageTitle}</h1>
+
+        <div className="flex items-center gap-2 mt-1 text-sm text-[#6B7280] dark:text-[#9CA8A0] overflow-x-auto">
+          <Link to="/dashboard" className="hover:text-[#3FA34D] dark:hover:text-[#43B75A] flex-shrink-0 transition-colors">
+            Home
+          </Link>
+
+          {breadcrumb.map((item, index) => (
+            <React.Fragment key={index}>
+              <FiChevronRight size={14} className="flex-shrink-0 text-[#3FA34D] dark:text-[#43B75A]" />
+
+              <span className="capitalize whitespace-nowrap">{item.replace("-", " ")}</span>
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      {/* ================= MOBILE SEARCH ================= */}
+
+      <div className="px-6 pb-4 lg:hidden">
         <div className="relative">
           <FiSearch className="absolute left-4 top-4 text-[#9CA3AF] dark:text-[#6B7280]" />
 

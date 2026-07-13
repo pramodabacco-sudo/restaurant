@@ -280,7 +280,7 @@ const Login = () => {
               </div>
               {/* Remember Me & Forgot Password */}
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-y-2">
                 <label className="flex items-center gap-2 text-sm text-[#6B7280] dark:text-[#9CA8A0] cursor-pointer">
                   <input
                     type="checkbox"

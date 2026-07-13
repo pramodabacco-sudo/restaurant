@@ -24,12 +24,12 @@ const PageHeader = ({
 
         <div className="flex items-start gap-4">
           {icon && (
-            <div className="w-14 h-14 rounded-2xl bg-[#3FA34D]/10 dark:bg-[#43B75A]/10 text-[#3FA34D] dark:text-[#43B75A] flex items-center justify-center text-2xl">
+            <div className="w-14 h-14 shrink-0 rounded-2xl bg-[#3FA34D]/10 dark:bg-[#43B75A]/10 text-[#3FA34D] dark:text-[#43B75A] flex items-center justify-center text-2xl">
               {icon}
             </div>
           )}
 
-          <div>
+          <div className="min-w-0">
             <Breadcrumb />
 
             <h1 className="mt-3 text-3xl font-bold text-[#1F2937] dark:text-white">{title}</h1>
