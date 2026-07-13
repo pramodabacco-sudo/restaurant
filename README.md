@@ -163,7 +163,7 @@ restaurant-management-system/
 ## Clone Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/pramodabacco-sudo/restaurant.git
 cd restaurant-management-system
 ```
 
