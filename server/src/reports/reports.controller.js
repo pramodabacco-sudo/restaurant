@@ -1,187 +1,279 @@
 // src/reports/reports.controller.js
 // ==============================================
 // Reports Controller
-// Thin HTTP layer: parse query -> call service -> shape response.
-// All errors are forwarded to next(err) for your centralized error handler.
+// Owns all HTTP concerns (req/res, status codes, content-type, downloads).
+// Delegates every bit of business/query logic to reports.service.js.
 // ==============================================
 
 import reportsService from "./reports.service.js";
 
-function getFilters(req) {
-  return reportsService.parseFilters(req.query);
-}
+const VALID_PERIODS = ["today", "thisweek", "thismonth", "thisyear"];
 
-async function getDashboard(req, res, next) {
+/**
+ * GET /api/reports/dashboard
+ * Query: period, startDate, endDate, store, orderType, paymentMethod,
+ *        category, search, granularity
+ */
+async function getDashboard(req, res) {
   try {
-    const filters = getFilters(req);
+    const filters = reportsService.parseFilters(req.query);
+
+    if (
+      req.query.period &&
+      !VALID_PERIODS.includes(
+        String(req.query.period).toLowerCase().replace(/\s+/g, ""),
+      ) &&
+      !(req.query.startDate && req.query.endDate)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid period. Use one of: Today, This Week, This Month, This Year — or pass startDate & endDate.`,
+      });
+    }
+
     const data = await reportsService.getDashboard(filters);
-    res.json({
-      success: true,
-      filters: { start: filters.start, end: filters.end },
-      data,
+
+    return res.status(200).json({ success: true, filters, data });
+  } catch (error) {
+    console.error("[reports.controller] getDashboard failed:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load dashboard report data.",
     });
-  } catch (err) {
-    next(err);
   }
 }
 
-async function getSummary(req, res, next) {
+/**
+ * GET /api/reports/sales-summary
+ */
+async function getSalesSummary(req, res) {
   try {
-    const filters = getFilters(req);
+    const filters = reportsService.parseFilters(req.query);
     const [summary, inventoryValue] = await Promise.all([
       reportsService.getSalesSummary(filters),
       reportsService.getInventoryValue(),
     ]);
-    res.json({ success: true, data: { ...summary, inventoryValue } });
-  } catch (err) {
-    next(err);
+    return res.status(200).json({
+      success: true,
+      data: { ...summary, inventoryValue },
+    });
+  } catch (error) {
+    console.error("[reports.controller] getSalesSummary failed:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to load sales summary." });
   }
 }
 
-async function getSalesTrend(req, res, next) {
+/**
+ * GET /api/reports/sales-trend
+ */
+async function getSalesTrend(req, res) {
   try {
-    const filters = getFilters(req);
+    const filters = reportsService.parseFilters(req.query);
     const data = await reportsService.getSalesTrend(filters);
-    res.json({ success: true, data });
-  } catch (err) {
-    next(err);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error("[reports.controller] getSalesTrend failed:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to load sales trend." });
   }
 }
 
-async function getOrderTypeBreakdown(req, res, next) {
+/**
+ * GET /api/reports/order-type-breakdown
+ */
+async function getOrderTypeBreakdown(req, res) {
   try {
-    const filters = getFilters(req);
+    const filters = reportsService.parseFilters(req.query);
     const data = await reportsService.getOrderTypeBreakdown(filters);
-    res.json({ success: true, data });
-  } catch (err) {
-    next(err);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error("[reports.controller] getOrderTypeBreakdown failed:", error);
+    return res
+      .status(500)
+      .json({
+        success: false,
+        message: "Failed to load order type breakdown.",
+      });
   }
 }
 
-async function getCategoryPerformance(req, res, next) {
+/**
+ * GET /api/reports/category-performance
+ */
+async function getCategoryPerformance(req, res) {
   try {
-    const filters = getFilters(req);
+    const filters = reportsService.parseFilters(req.query);
     const data = await reportsService.getCategoryPerformance(filters);
-    res.json({ success: true, data });
-  } catch (err) {
-    next(err);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error("[reports.controller] getCategoryPerformance failed:", error);
+    return res
+      .status(500)
+      .json({
+        success: false,
+        message: "Failed to load category performance.",
+      });
   }
 }
 
-async function getPaymentDistribution(req, res, next) {
+/**
+ * GET /api/reports/payment-distribution
+ */
+async function getPaymentDistribution(req, res) {
   try {
-    const filters = getFilters(req);
+    const filters = reportsService.parseFilters(req.query);
     const data = await reportsService.getPaymentDistribution(filters);
-    res.json({ success: true, data });
-  } catch (err) {
-    next(err);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error("[reports.controller] getPaymentDistribution failed:", error);
+    return res
+      .status(500)
+      .json({
+        success: false,
+        message: "Failed to load payment distribution.",
+      });
   }
 }
 
-async function getTopSellingItems(req, res, next) {
+/**
+ * GET /api/reports/top-selling
+ */
+async function getTopSellingItems(req, res) {
   try {
-    const filters = getFilters(req);
+    const filters = reportsService.parseFilters(req.query);
     const data = await reportsService.getTopSellingItems(filters);
-    res.json({ success: true, data });
-  } catch (err) {
-    next(err);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error("[reports.controller] getTopSellingItems failed:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to load top selling items." });
   }
 }
 
-async function getExpenseBreakdown(req, res, next) {
+/**
+ * GET /api/reports/expense-breakdown
+ */
+async function getExpenseBreakdown(req, res) {
   try {
-    const filters = getFilters(req);
+    const filters = reportsService.parseFilters(req.query);
     const data = await reportsService.getExpenseBreakdown(filters);
-    res.json({ success: true, data });
-  } catch (err) {
-    next(err);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error("[reports.controller] getExpenseBreakdown failed:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to load expense breakdown." });
   }
 }
 
-async function getEmployeePerformance(req, res, next) {
+/**
+ * GET /api/reports/employee-performance
+ */
+async function getEmployeePerformance(req, res) {
   try {
-    const filters = getFilters(req);
+    const filters = reportsService.parseFilters(req.query);
     const data = await reportsService.getEmployeePerformance(filters);
-    res.json({ success: true, data });
-  } catch (err) {
-    next(err);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error("[reports.controller] getEmployeePerformance failed:", error);
+    return res
+      .status(500)
+      .json({
+        success: false,
+        message: "Failed to load employee performance.",
+      });
   }
 }
 
-async function getCustomerAnalytics(req, res, next) {
+/**
+ * GET /api/reports/customer-analytics
+ */
+async function getCustomerAnalytics(req, res) {
   try {
-    const filters = getFilters(req);
+    const filters = reportsService.parseFilters(req.query);
     const data = await reportsService.getCustomerAnalytics(filters);
-    res.json({ success: true, data });
-  } catch (err) {
-    next(err);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error("[reports.controller] getCustomerAnalytics failed:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to load customer analytics." });
   }
 }
 
-async function getInventoryAlerts(req, res, next) {
+/**
+ * GET /api/reports/inventory-alerts
+ */
+async function getInventoryAlerts(req, res) {
   try {
-    const filters = getFilters(req);
-    const data = await reportsService.getInventoryAlerts(filters.limit || 20);
-    res.json({ success: true, data });
-  } catch (err) {
-    next(err);
+    const limit = Math.min(
+      200,
+      Math.max(1, parseInt(req.query.limit, 10) || 20),
+    );
+    const data = await reportsService.getInventoryAlerts(limit);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error("[reports.controller] getInventoryAlerts failed:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to load inventory alerts." });
   }
 }
 
-async function getKitchenPerformance(req, res, next) {
+/**
+ * GET /api/reports/kitchen-performance
+ */
+async function getKitchenPerformance(req, res) {
   try {
-    const filters = getFilters(req);
+    const filters = reportsService.parseFilters(req.query);
     const data = await reportsService.getKitchenPerformance(filters);
-    res.json({ success: true, data });
-  } catch (err) {
-    next(err);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error("[reports.controller] getKitchenPerformance failed:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to load kitchen performance." });
   }
 }
 
-async function getTransactions(req, res, next) {
+/**
+ * GET /api/reports/transactions
+ * Supports pagination via page & pageSize, plus search & paymentMethod filters.
+ */
+async function getRecentTransactions(req, res) {
   try {
-    const filters = getFilters(req);
+    const filters = reportsService.parseFilters(req.query);
     const data = await reportsService.getRecentTransactions(filters);
-    res.json({ success: true, ...data });
-  } catch (err) {
-    next(err);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error("[reports.controller] getRecentTransactions failed:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to load recent transactions." });
   }
 }
 
-// ─────────────────────────────────────────────
-// EXPORT
-// GET /api/reports/export/:reportType?format=csv|xlsx&...filters
-// ─────────────────────────────────────────────
-
-const VALID_REPORT_TYPES = [
-  "transactions",
-  "top-selling",
-  "category-performance",
-  "payment-distribution",
-  "expense-breakdown",
-  "employee-performance",
-  "inventory-alerts",
-  "sales-trend",
-  "order-type-breakdown",
-  "customer-analytics",
-];
-
-async function exportReport(req, res, next) {
+/**
+ * GET /api/reports/export/:reportType?format=csv|xlsx
+ * reportType matches the switch cases in reportsService.getExportData
+ * (transactions, top-selling, category-performance, payment-distribution,
+ *  expense-breakdown, employee-performance, inventory-alerts, sales-trend,
+ *  order-type-breakdown, customer-analytics).
+ */
+async function exportReport(req, res) {
   try {
     const { reportType } = req.params;
-    if (!VALID_REPORT_TYPES.includes(reportType)) {
-      return res.status(400).json({
-        success: false,
-        message: `Unknown report type "${reportType}". Valid types: ${VALID_REPORT_TYPES.join(", ")}`,
-      });
-    }
+    const format = String(req.query.format || "csv").toLowerCase();
+    const filters = reportsService.parseFilters(req.query);
 
-    const format = (req.query.format || "csv").toLowerCase();
-    const filters = getFilters(req);
     const rows = await reportsService.getExportData(reportType, filters);
     const filename = `${reportType}-${new Date().toISOString().slice(0, 10)}`;
 
-    if (format === "xlsx" || format === "excel") {
+    if (format === "xlsx") {
       const buffer = await reportsService.toExcelBuffer(rows, reportType);
       res.setHeader(
         "Content-Type",
@@ -191,28 +283,29 @@ async function exportReport(req, res, next) {
         "Content-Disposition",
         `attachment; filename="${filename}.xlsx"`,
       );
-      return res.send(buffer);
+      return res.status(200).send(Buffer.from(buffer));
     }
 
     const csv = reportsService.toCSV(rows);
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Type", "text/csv");
     res.setHeader(
       "Content-Disposition",
       `attachment; filename="${filename}.csv"`,
     );
-    res.send(csv);
-  } catch (err) {
-    if (err.statusCode)
-      return res
-        .status(err.statusCode)
-        .json({ success: false, message: err.message });
-    next(err);
+    return res.status(200).send(csv);
+  } catch (error) {
+    console.error("[reports.controller] exportReport failed:", error);
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Failed to export report.",
+    });
   }
 }
 
 export default {
   getDashboard,
-  getSummary,
+  getSalesSummary,
   getSalesTrend,
   getOrderTypeBreakdown,
   getCategoryPerformance,
@@ -223,6 +316,6 @@ export default {
   getCustomerAnalytics,
   getInventoryAlerts,
   getKitchenPerformance,
-  getTransactions,
+  getRecentTransactions,
   exportReport,
 };

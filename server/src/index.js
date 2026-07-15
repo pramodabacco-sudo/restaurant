@@ -17,6 +17,7 @@ import storesRoutes from "./stores/stores.routes.js";
 import kioskRoutes from "./kiosk/kiosk.routes.js";
 import ReportsRoutes from "./reports/reports.routes.js";
 import profitLossRoutes from "./profitLoss/profitLoss.routes.js";
+import dashboardRoutes from "./dashboard/dashboard.routes.js";
 
 const app = express();
 console.log("🚀 USING UPDATED INDEX.JS - KIOSK WITHOUT STAFF AUTH");
@@ -100,6 +101,11 @@ app.use(
 // Profit & Loss — requireAuth only here; each route inside profitLossRoutes
 // applies its own role check (Owner/Admin full access, Manager summary-only)
 app.use("/api/profit-loss", requireAuth, profitLossRoutes);
+
+// Dashboard — requireAuth only; the controller composes the response
+// per-role (owner/manager get everything, waiter gets only their own
+// orders, kitchen gets kitchen load, etc.)
+app.use("/api/dashboard", dashboardRoutes);
 
 // ==============================================
 // FALLBACK ERROR HANDLER
