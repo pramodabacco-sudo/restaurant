@@ -7,17 +7,10 @@
 
 import { PrismaClient } from "@prisma/client";
 
-// Reuse a single PrismaClient instance across the app in dev to avoid
-// exhausting DB connections on hot-reload. Swap this for your shared
-// `prisma` singleton if one already exists in your project (e.g. ../lib/prisma).
 const globalForPrisma = globalThis;
 const prisma = globalForPrisma.__reportsPrisma || new PrismaClient();
 if (process.env.NODE_ENV !== "production")
   globalForPrisma.__reportsPrisma = prisma;
-
-// ─────────────────────────────────────────────
-// FILTER / DATE HELPERS
-// ─────────────────────────────────────────────
 
 function startOfDay(d) {
   const x = new Date(d);
@@ -43,7 +36,7 @@ function getDateRange(period, startDate, endDate) {
   const p = (period || "today").toLowerCase().replace(/\s+/g, "");
 
   if (p === "thisweek" || p === "week") {
-    const day = now.getDay(); // 0 = Sunday
+    const day = now.getDay();
     const diffToMonday = day === 0 ? 6 : day - 1;
     const start = startOfDay(new Date(now));
     start.setDate(start.getDate() - diffToMonday);
@@ -60,7 +53,6 @@ function getDateRange(period, startDate, endDate) {
     return { start: startOfDay(start), end: endOfDay(now) };
   }
 
-  // default: today
   return { start: startOfDay(now), end: endOfDay(now) };
 }
 
@@ -71,10 +63,6 @@ function getPreviousRange(start, end) {
   return { start: prevStart, end: prevEnd };
 }
 
-/**
- * Normalizes raw req.query into a filters object used throughout the service.
- * Any "All X" placeholder value coming from a <select> is treated as "no filter".
- */
 function parseFilters(query = {}) {
   const {
     period,
@@ -131,10 +119,6 @@ function buildExpenseWhere(filters) {
 const num = (v) => Number(v || 0);
 const pctChange = (curr, prev) =>
   prev === 0 ? (curr > 0 ? 100 : 0) : ((curr - prev) / prev) * 100;
-
-// ─────────────────────────────────────────────
-// SALES SUMMARY (primary + secondary KPIs)
-// ─────────────────────────────────────────────
 
 async function getCOGS(orderWhere) {
   const items = await prisma.orderItem.findMany({
@@ -217,10 +201,6 @@ async function getInventoryValue() {
   );
 }
 
-// ─────────────────────────────────────────────
-// SALES TREND
-// ─────────────────────────────────────────────
-
 function bucketKey(date, granularity) {
   const d = new Date(date);
   if (granularity === "monthly")
@@ -230,7 +210,7 @@ function bucketKey(date, granularity) {
     const week = Math.ceil(((d - oneJan) / 86400000 + oneJan.getDay() + 1) / 7);
     return `${d.getFullYear()}-W${week}`;
   }
-  return d.toISOString().slice(0, 10); // daily
+  return d.toISOString().slice(0, 10);
 }
 
 async function getSalesTrend(filters) {
@@ -251,10 +231,6 @@ async function getSalesTrend(filters) {
   return Array.from(map.values()).sort((a, b) => (a.label > b.label ? 1 : -1));
 }
 
-// ─────────────────────────────────────────────
-// ORDER TYPE BREAKDOWN
-// ─────────────────────────────────────────────
-
 async function getOrderTypeBreakdown(filters) {
   const where = buildOrderWhere(filters);
   const grouped = await prisma.order.groupBy({
@@ -273,10 +249,6 @@ async function getOrderTypeBreakdown(filters) {
     }))
     .sort((a, b) => b.revenue - a.revenue);
 }
-
-// ─────────────────────────────────────────────
-// CATEGORY PERFORMANCE
-// ─────────────────────────────────────────────
 
 async function getCategoryPerformance(filters) {
   const where = buildOrderWhere(filters);
@@ -321,10 +293,6 @@ async function getCategoryPerformance(filters) {
     .map((a) => ({ ...a, pct: Math.round((a.revenue / maxRevenue) * 100) }));
 }
 
-// ─────────────────────────────────────────────
-// PAYMENT DISTRIBUTION
-// ─────────────────────────────────────────────
-
 async function getPaymentDistribution(filters) {
   const where = { status: "PAID", order: buildOrderWhere(filters) };
   if (filters.paymentMethod) where.method = filters.paymentMethod;
@@ -345,10 +313,6 @@ async function getPaymentDistribution(filters) {
     }))
     .sort((a, b) => b.amount - a.amount);
 }
-
-// ─────────────────────────────────────────────
-// TOP SELLING ITEMS
-// ─────────────────────────────────────────────
 
 async function getTopSellingItems(filters) {
   const where = buildOrderWhere(filters);
@@ -383,10 +347,6 @@ async function getTopSellingItems(filters) {
   });
 }
 
-// ─────────────────────────────────────────────
-// EXPENSE BREAKDOWN
-// ─────────────────────────────────────────────
-
 async function getExpenseBreakdown(filters) {
   const grouped = await prisma.expense.groupBy({
     by: ["categoryId"],
@@ -409,10 +369,6 @@ async function getExpenseBreakdown(filters) {
     }))
     .sort((a, b) => b.amount - a.amount);
 }
-
-// ─────────────────────────────────────────────
-// EMPLOYEE PERFORMANCE (waiters, via Order.waiterId)
-// ─────────────────────────────────────────────
 
 async function getEmployeePerformance(filters) {
   const where = { ...buildOrderWhere(filters), waiterId: { not: null } };
@@ -444,10 +400,6 @@ async function getEmployeePerformance(filters) {
     };
   });
 }
-
-// ─────────────────────────────────────────────
-// CUSTOMER ANALYTICS
-// ─────────────────────────────────────────────
 
 async function getCustomerAnalytics(filters) {
   const where = { ...buildOrderWhere(filters), customerId: { not: null } };
@@ -507,10 +459,6 @@ async function getCustomerAnalytics(filters) {
   };
 }
 
-// ─────────────────────────────────────────────
-// INVENTORY ALERTS
-// ─────────────────────────────────────────────
-
 async function getInventoryAlerts(limit = 20) {
   const alerts = await prisma.inventoryAlert.findMany({
     where: { isResolved: false },
@@ -546,10 +494,6 @@ async function getInventoryAlerts(limit = 20) {
     message: a.message,
   }));
 }
-
-// ─────────────────────────────────────────────
-// KITCHEN PERFORMANCE
-// ─────────────────────────────────────────────
 
 async function getKitchenPerformance(filters) {
   const where = { createdAt: { gte: filters.start, lte: filters.end } };
@@ -589,10 +533,6 @@ async function getKitchenPerformance(filters) {
       : 0,
   };
 }
-
-// ─────────────────────────────────────────────
-// RECENT TRANSACTIONS (paginated)
-// ─────────────────────────────────────────────
 
 async function getRecentTransactions(filters) {
   const where = buildOrderWhere(filters, { includeAllStatuses: true });
@@ -638,10 +578,6 @@ async function getRecentTransactions(filters) {
   return { rows, total, page: filters.page, pageSize: filters.pageSize };
 }
 
-// ─────────────────────────────────────────────
-// REFUNDS + DISCOUNTS (for business summary)
-// ─────────────────────────────────────────────
-
 async function getRefundsAndDiscounts(filters) {
   const [refundAgg, discountAgg] = await Promise.all([
     prisma.order.aggregate({
@@ -661,10 +597,6 @@ async function getRefundsAndDiscounts(filters) {
     discounts: num(discountAgg._sum.amountDeducted),
   };
 }
-
-// ─────────────────────────────────────────────
-// DASHBOARD AGGREGATOR (single round trip for the UI)
-// ─────────────────────────────────────────────
 
 async function getDashboard(filters) {
   const [
@@ -711,25 +643,115 @@ async function getDashboard(filters) {
   };
 
   return {
-    summary: { ...summary, inventoryValue },
+    // ================= KPIs =================
+    kpis: {
+      sales: {
+        value: summary.revenue,
+        change: summary.changes.revenuePct,
+        trend: summary.changes.revenuePct >= 0 ? "up" : "down",
+      },
+
+      orders: {
+        value: summary.orders,
+        change: summary.changes.ordersDelta,
+        trend: summary.changes.ordersDelta >= 0 ? "up" : "down",
+      },
+
+      netProfit: {
+        value: summary.netProfit,
+        change: summary.changes.netProfitPct,
+        trend: summary.changes.netProfitPct >= 0 ? "up" : "down",
+      },
+
+      averageBill: {
+        value: summary.avgBill,
+        change: summary.changes.avgBillPct,
+        trend: summary.changes.avgBillPct >= 0 ? "up" : "down",
+      },
+    },
+
+    // ================= Secondary KPIs =================
+    secondaryKpis: {
+      customers: {
+        value: summary.customers,
+        change: 0,
+        trend: "up",
+      },
+
+      inventoryValue: {
+        value: inventoryValue,
+      },
+
+      expenses: {
+        value: expenseBreakdown.reduce((t, e) => t + e.amount, 0),
+        change: 0,
+        trend: "down",
+      },
+
+      gstCollected: {
+        value: summary.gst,
+        change: 0,
+        trend: "up",
+      },
+    },
+
+    // ================= Dashboard Lists =================
+    topSelling: topSellingItems,
+
+    categoryData: categoryPerformance,
+
+    paymentData: paymentDistribution.map((p) => ({
+      name: p.method,
+      amount: p.amount,
+      pct: p.pct,
+    })),
+
+    expenseBreakdown,
+
+    expenseTotal: expenseBreakdown.reduce((t, e) => t + e.amount, 0),
+
+    employees: employeePerformance,
+
+    transactions: recentTransactions.rows,
+
+    inventoryAlerts,
+
+    // ================= Customer =================
+    customerSegments: {
+      newCustomers: customerAnalytics.new,
+      returning: customerAnalytics.returning,
+      loyal: customerAnalytics.loyal,
+      inactive: customerAnalytics.inactive,
+    },
+
+    topCustomer: customerAnalytics.topCustomer && {
+      name: customerAnalytics.topCustomer.name,
+      orders: customerAnalytics.topCustomer.orders,
+      totalSpent: customerAnalytics.topCustomer.sales,
+    },
+
+    // ================= Kitchen =================
+    kitchenPerformance: {
+      prepared: kitchenPerformance.prepared,
+      pending: kitchenPerformance.pending,
+      avgPrepMinutes: kitchenPerformance.avgTimeMinutes,
+      cancelled: kitchenPerformance.cancelled,
+    },
+
+    // ================= Summary =================
+    businessSummary: {
+      bestItem: businessSummary.bestItem,
+      bestCategory: businessSummary.bestCategory,
+      refunds: businessSummary.refunds,
+      discounts: businessSummary.discounts,
+      netMargin: businessSummary.netMargin,
+      growth: businessSummary.growthPct,
+    },
+
     salesTrend,
     orderTypeBreakdown,
-    categoryPerformance,
-    paymentDistribution,
-    topSellingItems,
-    expenseBreakdown,
-    employeePerformance,
-    customerAnalytics,
-    inventoryAlerts,
-    kitchenPerformance,
-    recentTransactions,
-    businessSummary,
   };
 }
-
-// ─────────────────────────────────────────────
-// EXPORT: raw row fetchers + CSV / XLSX serializers
-// ─────────────────────────────────────────────
 
 async function getExportData(reportType, filters) {
   switch (reportType) {
@@ -762,7 +784,7 @@ async function getExportData(reportType, filters) {
       return getOrderTypeBreakdown(filters);
     case "customer-analytics": {
       const analytics = await getCustomerAnalytics(filters);
-      return [analytics]; // single summary row
+      return [analytics];
     }
     default:
       throw new Error(`Unknown report type for export: ${reportType}`);
@@ -787,8 +809,6 @@ function toCSV(rows) {
 async function toExcelBuffer(rows, sheetName = "Report") {
   let ExcelJS;
   try {
-    // Lazy require so the app doesn't crash if xlsx export isn't used.
-    // Install with: npm install exceljs
     ExcelJS = require("exceljs");
   } catch (e) {
     const err = new Error(

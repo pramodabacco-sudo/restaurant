@@ -2,7 +2,7 @@
 // src/dashboard/components/SalesChart.jsx
 // ==============================================
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -15,32 +15,7 @@ import {
 import { FiTrendingUp, FiCalendar } from "react-icons/fi";
 
 import { useTheme } from "../../context/ThemeContext";
-
-const dailyData = [
-  { name: "Mon", sales: 12500 },
-  { name: "Tue", sales: 18200 },
-  { name: "Wed", sales: 16400 },
-  { name: "Thu", sales: 21500 },
-  { name: "Fri", sales: 27800 },
-  { name: "Sat", sales: 35400 },
-  { name: "Sun", sales: 30100 },
-];
-
-const weeklyData = [
-  { name: "Week 1", sales: 145000 },
-  { name: "Week 2", sales: 169000 },
-  { name: "Week 3", sales: 184000 },
-  { name: "Week 4", sales: 201000 },
-];
-
-const monthlyData = [
-  { name: "Jan", sales: 520000 },
-  { name: "Feb", sales: 610000 },
-  { name: "Mar", sales: 580000 },
-  { name: "Apr", sales: 720000 },
-  { name: "May", sales: 695000 },
-  { name: "Jun", sales: 810000 },
-];
+import { formatCurrency } from "../utils/format";
 
 // ==========================================
 // THEME-AWARE CHART TOKENS
@@ -68,31 +43,30 @@ const chartTokens = {
   },
 };
 
-const SalesChart = () => {
-  const [period, setPeriod] = useState("daily");
-
+const SalesChart = ({
+  data = [],
+  period = "daily",
+  onPeriodChange,
+  loading = false,
+}) => {
   const { theme } = useTheme();
 
   const tokens = chartTokens[theme] || chartTokens.light;
 
-  const data = useMemo(() => {
-    switch (period) {
-      case "weekly":
-        return weeklyData;
+  const totalSales = useMemo(
+    () => data.reduce((sum, item) => sum + item.sales, 0),
+    [data],
+  );
+  const averageSales = data.length ? Math.round(totalSales / data.length) : 0;
 
-      case "monthly":
-        return monthlyData;
-
-      default:
-        return dailyData;
-    }
-  }, [period]);
-
-  const totalSales = data.reduce((sum, item) => sum + item.sales, 0);
-
-  const averageSales = Math.round(totalSales / data.length);
-
-  const formatCurrency = (value) => `₹${value.toLocaleString("en-IN")}`;
+  // Simple growth signal: last bucket vs first bucket in the current window.
+  const growth = useMemo(() => {
+    if (data.length < 2) return null;
+    const first = data[0].sales;
+    const last = data[data.length - 1].sales;
+    if (first === 0) return null;
+    return (((last - first) / first) * 100).toFixed(1);
+  }, [data]);
 
   return (
     <div className="bg-white dark:bg-[#171C17] rounded-2xl border border-[#E7EAE1] dark:border-[#262B24] shadow-sm shadow-black/[0.02] dark:shadow-none transition-colors">
@@ -100,7 +74,9 @@ const SalesChart = () => {
 
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-6 border-b border-[#E7EAE1] dark:border-[#262B24]">
         <div>
-          <h2 className="text-2xl font-bold text-[#1F2937] dark:text-white">Sales Overview</h2>
+          <h2 className="text-2xl font-bold text-[#1F2937] dark:text-white">
+            Sales Overview
+          </h2>
 
           <p className="text-[#6B7280] dark:text-[#9CA8A0] mt-1">
             Revenue analytics and sales performance
@@ -111,7 +87,7 @@ const SalesChart = () => {
           {["daily", "weekly", "monthly"].map((item) => (
             <button
               key={item}
-              onClick={() => setPeriod(item)}
+              onClick={() => onPeriodChange && onPeriodChange(item)}
               className={`px-4 py-2 rounded-full capitalize transition-all ${
                 period === item
                   ? "bg-[#3FA34D] dark:bg-[#43B75A] text-white"
@@ -128,10 +104,12 @@ const SalesChart = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-6 py-5 border-b border-[#E7EAE1] dark:border-[#262B24]">
         <div>
-          <p className="text-[#6B7280] dark:text-[#9CA8A0] text-sm">Total Sales</p>
+          <p className="text-[#6B7280] dark:text-[#9CA8A0] text-sm">
+            Total Sales
+          </p>
 
           <h3 className="text-3xl font-bold mt-2 text-[#1F2937] dark:text-white">
-            {formatCurrency(totalSales)}
+            {loading ? "—" : formatCurrency(totalSales)}
           </h3>
         </div>
 
@@ -139,7 +117,7 @@ const SalesChart = () => {
           <p className="text-[#6B7280] dark:text-[#9CA8A0] text-sm">Average</p>
 
           <h3 className="text-3xl font-bold mt-2 text-[#1F2937] dark:text-white">
-            {formatCurrency(averageSales)}
+            {loading ? "—" : formatCurrency(averageSales)}
           </h3>
         </div>
 
@@ -151,7 +129,11 @@ const SalesChart = () => {
           <div>
             <p className="text-[#6B7280] dark:text-[#9CA8A0] text-sm">Growth</p>
 
-            <h3 className="text-2xl font-bold text-[#3FA34D] dark:text-[#43B75A]">+18.6%</h3>
+            <h3 className="text-2xl font-bold text-[#3FA34D] dark:text-[#43B75A]">
+              {loading || growth === null
+                ? "—"
+                : `${growth >= 0 ? "+" : ""}${growth}%`}
+            </h3>
           </div>
         </div>
       </div>
@@ -159,50 +141,63 @@ const SalesChart = () => {
       {/* Chart */}
 
       <div className="h-[420px] p-6">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data}>
-            <defs>
-              <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={tokens.accent} stopOpacity={0.35} />
+        {!loading && data.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-[#9CA3AF] dark:text-[#6B7280]">
+            No sales recorded for this period yet.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data}>
+              <defs>
+                <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop
+                    offset="5%"
+                    stopColor={tokens.accent}
+                    stopOpacity={0.35}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor={tokens.accent}
+                    stopOpacity={0}
+                  />
+                </linearGradient>
+              </defs>
 
-                <stop offset="95%" stopColor={tokens.accent} stopOpacity={0} />
-              </linearGradient>
-            </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke={tokens.grid} />
 
-            <CartesianGrid strokeDasharray="3 3" stroke={tokens.grid} />
+              <XAxis
+                dataKey="name"
+                tick={{ fill: tokens.tick }}
+                axisLine={{ stroke: tokens.axis }}
+              />
 
-            <XAxis dataKey="name" tick={{ fill: tokens.tick }} axisLine={{ stroke: tokens.axis }} />
+              <YAxis
+                tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}K`}
+                tick={{ fill: tokens.tick }}
+                axisLine={{ stroke: tokens.axis }}
+              />
 
-            <YAxis
-              tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}K`}
-              tick={{ fill: tokens.tick }}
-              axisLine={{ stroke: tokens.axis }}
-            />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: tokens.tooltipBg,
+                  border: `1px solid ${tokens.tooltipBorder}`,
+                  borderRadius: "0.75rem",
+                }}
+                formatter={(value) => formatCurrency(value)}
+                labelStyle={{ color: tokens.tooltipLabel }}
+                itemStyle={{ color: tokens.accent }}
+              />
 
-            <Tooltip
-              contentStyle={{
-                backgroundColor: tokens.tooltipBg,
-                border: `1px solid ${tokens.tooltipBorder}`,
-                borderRadius: "0.75rem",
-              }}
-              formatter={(value) => formatCurrency(value)}
-              labelStyle={{
-                color: tokens.tooltipLabel,
-              }}
-              itemStyle={{
-                color: tokens.accent,
-              }}
-            />
-
-            <Area
-              type="monotone"
-              dataKey="sales"
-              stroke={tokens.accent}
-              strokeWidth={3}
-              fill="url(#salesGradient)"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+              <Area
+                type="monotone"
+                dataKey="sales"
+                stroke={tokens.accent}
+                strokeWidth={3}
+                fill="url(#salesGradient)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* Footer */}
@@ -213,9 +208,19 @@ const SalesChart = () => {
           Updated just now
         </div>
 
-        <div className="text-sm text-[#3FA34D] dark:text-[#43B75A] font-semibold">
-          Revenue is increasing compared to the previous period.
-        </div>
+        {growth !== null && (
+          <div
+            className={`text-sm font-semibold ${
+              growth >= 0
+                ? "text-[#3FA34D] dark:text-[#43B75A]"
+                : "text-[#EF5350]"
+            }`}
+          >
+            {growth >= 0
+              ? "Revenue is increasing compared to the start of this period."
+              : "Revenue has dipped compared to the start of this period."}
+          </div>
+        )}
       </div>
     </div>
   );

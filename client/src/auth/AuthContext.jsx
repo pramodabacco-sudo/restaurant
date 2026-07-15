@@ -187,6 +187,8 @@ export const AuthProvider = ({ children }) => {
 
       isKitchen,
 
+      isWaiter,
+
       canManageUsers,
 
       canManageSettings,
