@@ -555,12 +555,37 @@ export async function createOrderAndSendToKitchen(payload, outletId) {
 }
 
 export async function listOrders(
-  { status, orderType, tableId, customerId, from, to, page = 1, limit = 20 },
+  {
+    status,
+    // "Everything still open" — what the Table View's Takeaway and Delivery
+    // sections need. `status` only takes one value, so without this the
+    // only way to ask for open orders was to fetch every order ever placed
+    // and filter client-side.
+    active,
+    orderType,
+    tableId,
+    customerId,
+    from,
+    to,
+    // "board" returns the slim card-shaped payload; anything else returns
+    // the full order with items, add-ons and menu items as before.
+    view,
+    page = 1,
+    limit = 20,
+  },
   outletId,
 ) {
   const where = {
     outletId,
     ...(status ? { status } : {}),
+    // Same closed-order list the tables board uses, so a takeaway card and
+    // a table card disappear from the floor under the same conditions.
+    // Compared against the string too: the controller hands req.query
+    // straight through, so this arrives as "true", and a bare truthiness
+    // check would also match the string "false".
+    ...((active === true || active === "true") && !status
+      ? { status: { notIn: ["COMPLETED", "CANCELLED", "REFUNDED"] } }
+      : {}),
     ...(orderType ? { orderType } : {}),
     ...(tableId ? { tableId } : {}),
     ...(customerId ? { customerId } : {}),
@@ -573,6 +598,43 @@ export async function listOrders(
         }
       : {}),
   };
+
+  // The floor view renders a ~90px card per order: number, elapsed time,
+  // amount, colour. The full include below carries every order item, its
+  // menu item, and every add-on with its add-on record — for up to 100
+  // orders at a time. That's megabytes of JSON and a fistful of joins to
+  // draw a card that shows four fields, and it's re-fetched every 15
+  // seconds by the poll.
+  //
+  // `view=board` swaps it for exactly what a card reads.
+  if (view === "board") {
+    const [data, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          orderType: true,
+          grandTotal: true,
+          createdAt: true,
+          onlinePlatformId: true,
+          customer: { select: { name: true } },
+          onlinePlatform: { select: { id: true, name: true } },
+          payments: { select: { id: true, amount: true, status: true } },
+          kitchenOrders: { select: { id: true, status: true } },
+          // Count only — the card shows "3 items", never which three.
+          _count: { select: { items: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (Number(page) - 1) * Number(limit),
+        take: Number(limit),
+      }),
+      prisma.order.count({ where }),
+    ]);
+
+    return { data, total, page: Number(page), limit: Number(limit) };
+  }
 
   const [data, total] = await Promise.all([
     prisma.order.findMany({
