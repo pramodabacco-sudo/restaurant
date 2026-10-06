@@ -158,8 +158,26 @@ function OrderItemsTooltip({ order, anchorRect, visible }) {
   // `top-2` offset the absolutely-positioned version used.
   const top = anchorRect.top + 8;
 
+  // FIX: with many items the tooltip grew taller than the card and sat on
+  // top of the "Complete Service" button, so it couldn't be seen or clicked
+  // while the pointer was over the card. The item list now gets a height cap
+  // worked out from the card itself: card height minus the tooltip's own
+  // header/footer and a reserved strip at the bottom for the action button.
+  // The list scrolls inside that cap, so the button always stays clear.
+  // Floor of 96px (about 4 rows) so it never collapses on a short card, and
+  // a ceiling of 256px (the old max-h-64) on a tall one.
+  const TOOLTIP_CHROME = 8 + 44 + 62; // top offset + header + total/footer
+  const BUTTON_STRIP = 76; // space kept free for the card's action button
+  const listMaxHeight = Math.min(
+    256,
+    Math.max(96, anchorRect.height - TOOLTIP_CHROME - BUTTON_STRIP),
+  );
+
   return createPortal(
     <div
+      // The wrapper ignores the mouse (so it can never block the card's
+      // buttons), but while it's showing the item list opts back in so the
+      // mouse wheel can scroll a long list.
       className={`pointer-events-none fixed z-50 w-72 transition-all duration-150 ${
         visible ? "scale-100 opacity-100" : "scale-95 opacity-0"
       }`}
@@ -175,7 +193,12 @@ function OrderItemsTooltip({ order, anchorRect, visible }) {
           </span>
         </div>
 
-        <ul className="max-h-64 space-y-1.5 overflow-y-auto py-2">
+        <ul
+          style={{ maxHeight: listMaxHeight }}
+          className={`space-y-1.5 overflow-y-auto overscroll-contain py-2 pr-1 ${
+            visible ? "pointer-events-auto" : "pointer-events-none"
+          }`}
+        >
           {lines.map((line) => (
             <li key={line.id} className="flex items-start justify-between gap-3 text-xs">
               <span className="min-w-0 text-[#1F2937] dark:text-[#E4E9E2]">

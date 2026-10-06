@@ -62,6 +62,11 @@ export default function PosOrderScreen() {
   // this the instant the order reaches the kitchen; takeaway doesn't, since
   // its ticket is printed from Billing after payment.
   const [printKotOrderId, setPrintKotOrderId] = useState(null);
+  // Ids of the KOTs created by THIS send. When set, the print modal shows
+  // only these, so a second round on an occupied table prints just the new
+  // items instead of the whole order again. Null = show every KOT on the
+  // order (a brand-new order only has its own, so that is already correct).
+  const [printKotIds, setPrintKotIds] = useState(null);
 
   const [kitchenBranches, setKitchenBranches] = useState([]);
   const [selectedKitchenBranchId, setSelectedKitchenBranchId] = useState("");
@@ -451,7 +456,12 @@ export default function PosOrderScreen() {
         }
 
         if (newItemIds.length > 0) {
-          await sendToKitchen(existingOrder.id, newItemIds);
+          // sendToKitchen returns ONE kot (single station) or an array
+          // (several stations) — normalise, then remember exactly which
+          // tickets this round created.
+          const sent = await sendToKitchen(existingOrder.id, newItemIds);
+          const sentKots = Array.isArray(sent) ? sent : [sent];
+          setPrintKotIds(sentKots.map((k) => k?.id).filter(Boolean));
           setPrintKotOrderId(existingOrder.id);
         }
 
@@ -520,6 +530,7 @@ export default function PosOrderScreen() {
           items,
         });
         // Online orders go straight to the kitchen, so the ticket prints now.
+        setPrintKotIds(null);
         setPrintKotOrderId(order.id);
         setLastOrder(order);
         setShowSuccessToast(true);
@@ -576,6 +587,7 @@ export default function PosOrderScreen() {
         setError(null); // not an error state — informational, shown via the toast
       } else {
         // Dine-in went to the kitchen atomically with the order, so print now.
+        setPrintKotIds(null);
         setPrintKotOrderId(order.id);
       }
       setCart([]);
@@ -664,9 +676,13 @@ export default function PosOrderScreen() {
 
         {printKotOrderId && (
           <KotPrintModal
-            key={printKotOrderId}  // ← Add this
+            key={`${printKotOrderId}:${(printKotIds || []).join(",")}`}
             orderId={printKotOrderId}
-            onClose={() => setPrintKotOrderId(null)}
+            kotIds={printKotIds}
+            onClose={() => {
+              setPrintKotOrderId(null);
+              setPrintKotIds(null);
+            }}
           />
         )}
 

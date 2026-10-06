@@ -137,6 +137,7 @@ export default function KotCard({
     notes,
     awaitingCreate,
     kotNumbers,
+    round = 1,
   } = ticket;
 
   const elapsedMinutes = useElapsedMinutes(createdAt, frozenAt);
@@ -243,6 +244,11 @@ export default function KotCard({
         {isOnlineOrder && (
           <span className="rounded-full border border-violet-300 bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700 dark:border-violet-500/40 dark:bg-violet-500/20 dark:text-violet-300">
             🛵 {order.onlinePlatform.name}
+          </span>
+        )}
+        {round > 1 && (
+          <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+            Add-on #{round - 1}
           </span>
         )}
         <span

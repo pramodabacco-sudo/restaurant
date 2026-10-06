@@ -95,14 +95,56 @@ const PRIORITY_RANK = {
 // working untouched — filter first, group second, so the Grill Station tab
 // still shows one card per order containing only that station's items.
 // ─────────────────────────────────────────────────────────────────────────
+// FIX: one card per SEND TO KITCHEN, not one card per order.
+//
+// Grouping on orderId alone meant a second round on an occupied table (e.g.
+// Hummus added to T-1 after the first meal was ordered) was folded into the
+// first round's card — the kitchen saw "Hummus" tucked inside an old ticket
+// instead of a new one. All the KOTs from ONE send (one per station) are
+// created in a single transaction, so their createdAt values are within
+// milliseconds; a later round is minutes later. So within an order, tickets
+// are split into rounds wherever there's a gap bigger than this.
+const SAME_SEND_WINDOW_MS = 10_000;
+
+// Returns Map<kot, { key, round }> — `round` is 1 for the original send,
+// 2 for the first add-on, and so on.
+function assignSendRounds(kots) {
+  const byOrder = new Map();
+  for (const kot of kots) {
+    const orderId = kot.orderId || kot.order?.id;
+    if (!orderId || !kot.createdAt) continue; // offline placeholders: untouched
+    if (!byOrder.has(orderId)) byOrder.set(orderId, []);
+    byOrder.get(orderId).push(kot);
+  }
+
+  const result = new Map();
+  for (const [orderId, rows] of byOrder) {
+    const sorted = [...rows].sort(
+      (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+    );
+    let round = 1;
+    let prevTime = null;
+    for (const kot of sorted) {
+      const t = new Date(kot.createdAt).getTime();
+      if (prevTime !== null && t - prevTime > SAME_SEND_WINDOW_MS) round += 1;
+      prevTime = t;
+      result.set(kot, { key: `${orderId}#${round}`, round });
+    }
+  }
+  return result;
+}
+
 function groupKotsByOrder(kots) {
   const groups = new Map();
+  const rounds = assignSendRounds(kots);
 
   for (const kot of kots) {
-    // Real tickets group on orderId. Offline placeholders (see
+    // Real tickets group on orderId + send round. Offline placeholders (see
     // getQueuedKots in offlineQueue.js) have no server order yet, so they
     // group on the clientRequestId that will become one.
+    const roundInfo = rounds.get(kot);
     const key =
+      roundInfo?.key ||
       kot.orderId ||
       kot.order?.id ||
       (kot.clientRequestId ? `offline-${kot.clientRequestId}` : kot.id);
@@ -111,6 +153,8 @@ function groupKotsByOrder(kots) {
       groups.set(key, {
         key,
         orderId: kot.orderId || kot.order?.id || null,
+        // 1 = the original send; 2+ = items added to the order later.
+        round: roundInfo?.round || 1,
         clientRequestId: kot.clientRequestId || null,
         order: kot.order,
         kots: [],
