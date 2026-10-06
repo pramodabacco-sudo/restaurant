@@ -18,7 +18,10 @@ import { getKotsForOrder } from "../api/posApi";
 import KotTicket from "./KotTicket";
 import { printOnce } from "../../print/printing";
 
-export default function KotPrintModal({ orderId, onClose }) {
+// `kotIds` (optional): show ONLY these KOTs. Used when more items are added to
+// an order that's already with the kitchen — the order's earlier KOTs must not
+// be loaded or printed again. Omit it to show every KOT on the order.
+export default function KotPrintModal({ orderId, kotIds = null, onClose }) {
   const [kots, setKots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -29,7 +32,14 @@ export default function KotPrintModal({ orderId, onClose }) {
     (async () => {
       try {
         const data = await getKotsForOrder(orderId);
-        if (!cancelled) setKots(Array.isArray(data) ? data : []);
+        if (!cancelled) {
+          const all = Array.isArray(data) ? data : [];
+          setKots(
+            kotIds && kotIds.length > 0
+              ? all.filter((k) => kotIds.includes(k.id))
+              : all,
+          );
+        }
       } catch (err) {
         if (!cancelled) setError(err.message);
       } finally {
@@ -39,7 +49,10 @@ export default function KotPrintModal({ orderId, onClose }) {
     return () => {
       cancelled = true;
     };
-  }, [orderId]);
+  // kotIds is an array (new identity each render), so key the effect on its
+  // contents instead.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId, (kotIds || []).join(",")]);
 
   if (!orderId) return null;
 
